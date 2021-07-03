@@ -6,6 +6,26 @@ import time
 
 
 def log_likelihood(x, dim, init, boundary=10):
+    ''' Return the logarithm of a N-dimensional gaussian likelihood. It is set in such a way that the
+    integral of the product with the prior over the parameter space is 1.
+
+    Parameters
+    ----------
+    x : numpy.array
+        If init is set to True, x should be a MxN matrix whose M rows are random N-dimensional vectors.
+        In this case it is used to initialize the likelihood of the live points.
+        If init is set to False, x should be just a random N dimensional vector.
+
+    dim : int
+        Dimension of the parameter space.
+
+    init: bool
+        You can choose to use the funcion to initialize the likelihood of the live points (True) or
+        to generate just a new likelihood value (False)
+
+    boundary : init, optional
+        Boundary of the parameter space.
+    '''
 
     likelihood = []
 
@@ -21,6 +41,22 @@ def log_likelihood(x, dim, init, boundary=10):
     return likelihood
 
 def log_prior(x, dim, boundary=10):
+    '''Return a uniform prior for each value of the N-dimension vector x. It is set in such a way that the
+    integral of the product with the likelihood over the parameter space is 1.
+
+    x : numpy.array
+        A random N dimensional vector.
+
+    dim : int
+        Dimension of the parameter space.
+
+    init: bool
+        You can choose to use the funcion to initialize the likelihood of the live points (True) or
+        to generate just a new likelihood value (False)
+
+    boundary : init, optional
+        Boundary of the parameter space.
+    '''
 
     prior = []
     mod = np.sqrt(dim) * boundary
@@ -48,10 +84,11 @@ def uniform_proposal(x, dim, logLmin):
     while True:
         counter += 1
         if counter > 200:
-            a += 1
+            add = np.random.normal(0,0.001)
+            a += np.abs(add)
             counter = 0
         new_line = np.zeros(dim+2, dtype=np.float64)
-        new_line[:dim] = np.random.uniform(-10 + 10*a/1000, 10 - 10*a/1000, size=dim)
+        new_line[:dim] = np.random.uniform(-10 + a, 10 - a, size=dim)
         new_log_prior = log_prior(new_line[:dim], dim)
         new_line[dim] = new_log_prior[0]
         # acceptance MH rule
@@ -62,11 +99,14 @@ def uniform_proposal(x, dim, logLmin):
             end = time.time()
             t = end-start
             print('Time for resampling: {0:.2f} s'.format(t))
-            return new_line
+            return new_line, t, a
 
 def nested_samplig(live_points,dim, steps, resample_function=uniform_proposal):
+    '''Nested Sampling by Skilling (2006)
+    '''
+
     N = live_points.shape[0]
-    Area = []; Zlog = []; logL_worst = []
+    Area = []; Zlog = []; logL_worst = []; T = []; A = []
 
     logZ = -np.inf
     parameters = np.random.uniform(-10, 10, size=(N, dim))
@@ -87,10 +127,12 @@ def nested_samplig(live_points,dim, steps, resample_function=uniform_proposal):
         logZ = logZnew
         print("n:{0} logL_worst = {1:.5f} --> width = {2:.5f} Z = {3:.5f}".format(i,
                                                                             np.exp(logLw), logwidth[i], np.exp(logZ)))
-        new_sample = resample_function(live_points[Lw_idx], dim, logLw)
+        new_sample, t, a = resample_function(live_points[Lw_idx], dim, logLw)
+        A.append(a)
+        T.append(t)
         live_points[Lw_idx] = new_sample
         logwidth[i+1] = logwidth[i] - 1.0/N
-    return np.exp(Area), np.exp(Zlog), np.exp(logL_worst), logwidth, np.exp(logZ)
+    return np.exp(Area), np.exp(Zlog), np.exp(logL_worst), logwidth, np.exp(logZ), T, A
 
 if __name__ == "__main__":
 
@@ -111,11 +153,11 @@ if __name__ == "__main__":
 
     logging.basicConfig(level=levels[args.log])
 
-
+    start = time.time()
     n = args.num_live_points
     dim = args.dim
     live_points = np.zeros((n, dim+2), dtype=np.float64) # the first dim columns for each row represents my multidimensional array of parameters
-    area_plot, evidence_plot, likelihood_worst, prior_mass, evidence = nested_samplig(live_points, dim, steps=args.steps, resample_function=uniform_proposal)
+    area_plot, evidence_plot, likelihood_worst, prior_mass, evidence, t_resample, prior_shrink = nested_samplig(live_points, dim, steps=args.steps, resample_function=uniform_proposal)
 
     plt.figure()
     plt.plot(area_plot)
@@ -129,12 +171,26 @@ if __name__ == "__main__":
     plt.ylabel('Evidence Z')
     plt.title('Evidence as functioon of iterations')
 
-    X = []
     plt.figure()
     plt.scatter(prior_mass[:len(likelihood_worst)], likelihood_worst, s=0.1)
     plt.xlabel('log(X)')
     plt.ylabel('Worst Likelihood')
 
+    plt.figure()
+    plt.scatter(np.arange(args.steps),t_resample, s=0.5)
+    plt.yscale('log')
+    plt.xlabel('Iterations')
+    plt.ylabel('Resampling time')
+
+    plt.figure()
+    plt.scatter(np.arange(args.steps), prior_shrink, s=0.5)
+    plt.xlabel('Iterations')
+    plt.ylabel('Shrinking')
+
+    end = time.time()
     print('Evidence = {0:.5f}'.format(evidence))
     print('Check of priors sum: ', np.sum(np.exp(prior_mass)))
+    t = end-start
+    print('Total time: {0:.2f} s'.format(t))
     plt.show()
+
