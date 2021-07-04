@@ -68,7 +68,7 @@ def log_prior(x, dim, boundary=10):
 
     return prior
 
-def uniform_proposal(x, dim, logLmin, survivor):
+def uniform_proposal(x, dim, logLmin):
     ''' Sample a new object from the prior subject to the constrain L(x_new) > Lworst_old
 
     Parameters
@@ -80,16 +80,15 @@ def uniform_proposal(x, dim, logLmin, survivor):
     '''
     start = time.time()
     counter = 0
-    a = 0
+    shrink = 0
     while True:
         counter += 1
-        if counter > 200:
-            add = np.random.normal(0,0.001)
-            a += np.abs(add)
+        if counter > 150:
+            shrink += 1
             counter = 0
         new_line = np.zeros(dim+2, dtype=np.float64)
         #new_line[:dim] = np.random.normal(survivor, 0.01, size=dim)
-        new_line[:dim] = np.random.uniform(-10 + a, 10 - a, size=dim)
+        new_line[:dim] = np.random.uniform(-10 + 10*shrink/700, 10 - 10*shrink/700, size=dim)
         new_log_prior = log_prior(new_line[:dim], dim)
         new_line[dim] = new_log_prior[0]
         # acceptance MH rule
@@ -100,51 +99,59 @@ def uniform_proposal(x, dim, logLmin, survivor):
                 end = time.time()
                 t = end-start
                 print('Time for resampling: {0:.2f} s'.format(t))
-                return new_line, t, a
+                return new_line, t, shrink
 
-def nested_samplig(live_points,dim, steps, resample_function=uniform_proposal):
+def nested_samplig(live_points,dim, resample_function=uniform_proposal):
     '''Nested Sampling by Skilling (2006)
     '''
 
     N = live_points.shape[0]
-    Area = []; Zlog = []; logL_worst = []; T = []; A = []
+    f = 0.0001
+    Area = []; Zlog = []; logL_worst = []; T = []; A = [] # lists for plots
 
     logZ = -np.inf
     parameters = np.random.uniform(-10, 10, size=(N, dim))
     live_points[:, :dim] = parameters
     live_points[:, dim] = log_prior(parameters, dim)
     live_points[:, dim+1] = log_likelihood(parameters, dim, init=True)
-    logwidth = np.zeros(steps+1)
-    logwidth[0] = np.log(1.0 - np.exp(-1.0/N))
-    for i in range(steps):
+    #logwidth = np.zeros(steps+1)
+    logwidth = np.log(1.0 - np.exp(-1.0/N))
+    prior_mass = 0
+    #for i in range(steps):
+    i = 0
+    while True:
+        prior_mass += np.exp(logwidth)
+
         Lw_idx = np.argmin(live_points[:, dim+1])
         logLw = live_points[Lw_idx, dim+1]
-        logZnew = np.logaddexp(logZ, logwidth[i]+logLw)
-        survivors = np.delete(live_points, Lw_idx, axis=0)
-        k = survivors.shape[0]
-        survivor = live_points[int(np.random.uniform(k)),:dim]
-        print(survivor)
+        logZnew = np.logaddexp(logZ, logwidth+logLw)
+
+        #survivors = np.delete(live_points, Lw_idx, axis=0)
+        #k = survivors.shape[0]
+        #survivor = live_points[int(np.random.uniform(k)),:dim]
 
         logL_worst.append(logLw)
-        Area.append(logwidth[i]+logLw)
+        Area.append(logwidth+logLw)
         Zlog.append(logZnew)
 
         logZ = logZnew
         print("n:{0} logL_worst = {1:.5f} --> width = {2:.5f} Z = {3:.5f}".format(i,
-                                                                            np.exp(logLw), logwidth[i], np.exp(logZ)))
-        new_sample, t, a = resample_function(live_points[Lw_idx], dim, logLw, survivor)
+                                                                            np.exp(logLw), logwidth, np.exp(logZ)))
+        new_sample, t, a = resample_function(live_points[Lw_idx], dim, logLw)
         A.append(a)
         T.append(t)
         live_points[Lw_idx] = new_sample
-        logwidth[i+1] = logwidth[i] - 1.0/N
-    return np.exp(Area), np.exp(Zlog), np.exp(logL_worst), logwidth, np.exp(logZ), T, A
+        logwidth -= 1.0/N
+        i += 1
+        if (1/np.sqrt(2*np.pi))**dim * np.exp(-i/N) < f*np.exp(logZ):
+            break
+    return np.exp(Area), np.exp(Zlog), np.exp(logL_worst), prior_mass, np.exp(logZ), T, A
 
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Nested sampling')
     parser.add_argument('--dim', '-d', type=int, help='Dimension of the parameter space')
     parser.add_argument('--num_live_points', '-n', type=int, help='Number of live points')
-    parser.add_argument('--steps', '-s', type=int, help='Number steps')
     parser.add_argument('--plot', '-p', action='store_true', help='Plot the plots')
     parser.add_argument("-log", "--log", default="info",
                         help=("Provide logging level. Example --log debug', default='info"))
@@ -163,7 +170,7 @@ if __name__ == "__main__":
     n = args.num_live_points
     dim = args.dim
     live_points = np.zeros((n, dim+2), dtype=np.float64) # the first dim columns for each row represents my multidimensional array of parameters
-    area_plot, evidence_plot, likelihood_worst, prior_mass, evidence, t_resample, prior_shrink = nested_samplig(live_points, dim, steps=args.steps, resample_function=uniform_proposal)
+    area_plot, evidence_plot, likelihood_worst, prior_mass, evidence, t_resample, prior_shrink = nested_samplig(live_points, dim, resample_function=uniform_proposal)
 
     if args.plot:
         plt.figure()
@@ -178,26 +185,28 @@ if __name__ == "__main__":
         plt.ylabel('Evidence Z')
         plt.title('Evidence as functioon of iterations')
 
-        plt.figure()
-        plt.scatter(prior_mass[:len(likelihood_worst)], likelihood_worst, s=0.1)
-        plt.xlabel('log(X)')
-        plt.ylabel('Worst Likelihood')
+        #plt.figure()
+        #plt.scatter(prior_mass[:len(likelihood_worst)], likelihood_worst, s=0.1)
+        #plt.xlabel('log(X)')
+        #plt.ylabel('Worst Likelihood')
 
         plt.figure()
-        plt.scatter(np.arange(args.steps),t_resample, s=0.5)
+        plt.scatter(np.arange(len(t_resample)),t_resample, s=0.5)
         plt.yscale('log')
         plt.xlabel('Iterations')
         plt.ylabel('Resampling time')
 
         plt.figure()
-        plt.scatter(np.arange(args.steps), prior_shrink, s=0.5)
+        plt.scatter(np.arange(len(prior_shrink)), prior_shrink, s=0.5)
         plt.xlabel('Iterations')
         plt.ylabel('Shrinking')
 
     end = time.time()
+    print('============ SUMMARY ============')
     print('Evidence = {0:.5f}'.format(evidence))
-    print('Check of priors sum: ', np.sum(np.exp(prior_mass)))
+    print('Check of priors sum: ', prior_mass)
     t = end-start
     print('Total time: {0:.2f} s'.format(t))
+    print('=================================')
     plt.show()
 
