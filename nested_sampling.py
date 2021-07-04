@@ -68,7 +68,7 @@ def log_prior(x, dim, boundary=10):
 
     return prior
 
-def uniform_proposal(x, dim, logLmin):
+def uniform_proposal(x, dim, logLmin, survivor):
     ''' Sample a new object from the prior subject to the constrain L(x_new) > Lworst_old
 
     Parameters
@@ -99,18 +99,52 @@ def uniform_proposal(x, dim, logLmin):
                 end = time.time()
                 t = end-start
                 print('Time for resampling: {0:.2f} s'.format(t))
-                return new_line, t, shrink
+                return new_line, t #, shrink
+
+def normal_proposal(x, dim, logLmin, survivor):
+    ''' Sample a new object from the prior subject to the constrain L(x_new) > Lworst_old
+
+    Parameters
+    ----------
+    x : numpy array
+        Array (parameter, prior, likelihood) corresponding to the worst likelihood
+    logLmin : float64
+        Worst likelihood, i.e. The third element of x
+    '''
+    start = time.time()
+    counter = 0
+    while True:
+        counter += 1
+        zeros = np.zeros(dim)
+        diag = np.diag(np.ones(dim))
+        new_line = np.zeros(dim+2, dtype=np.float64)
+        step = np.random.multivariate_normal(zeros, diag)
+        new_line[:dim] = survivor + step
+        new_log_prior = log_prior(new_line[:dim], dim)
+        new_line[dim] = new_log_prior[0]
+        # acceptance MH rule
+        if (new_log_prior - x[:dim]).any() > np.log(np.random.uniform(0, 1)):
+            new_line[dim+1] = log_likelihood(new_line[:dim], dim, init=False)[0]
+            new_log_likelihood = new_line[dim+1]
+            if new_log_likelihood > logLmin:  # check if the new likelihood is greater then the old one
+                end = time.time()
+                t = end-start
+                print('Time for resampling: {0:.2f} s'.format(t))
+                print(new_line)
+                return new_line, t
 
 def nested_samplig(live_points,dim, resample_function=uniform_proposal):
     '''Nested Sampling by Skilling (2006)
     '''
 
     N = live_points.shape[0]
-    f = np.log(0.00001)
+    f = np.log(0.01)
     Area = []; Zlog = []; logL_worst = []; T = []; A = [] # lists for plots
 
     logZ = -np.inf
     parameters = np.random.uniform(-10, 10, size=(N, dim))
+    #distances = np.diff(parameters)
+    #print(distances.mean(),distances.std())
     live_points[:, :dim] = parameters
     live_points[:, dim] = log_prior(parameters, dim)
     live_points[:, dim+1] = log_likelihood(parameters, dim, init=True)
@@ -121,14 +155,14 @@ def nested_samplig(live_points,dim, resample_function=uniform_proposal):
     i = 0
     while True:
         prior_mass += np.exp(logwidth)
-
         Lw_idx = np.argmin(live_points[:, dim+1])
         logLw = live_points[Lw_idx, dim+1]
         logZnew = np.logaddexp(logZ, logwidth+logLw)
 
-        #survivors = np.delete(live_points, Lw_idx, axis=0)
-        #k = survivors.shape[0]
-        #survivor = live_points[int(np.random.uniform(k)),:dim]
+        survivors = np.delete(live_points, Lw_idx, axis=0)
+        k = survivors.shape[0]
+        survivor = live_points[int(np.random.uniform(k)),:dim]
+        #print('survivor, Lw ',survivor, logLw)
 
         logL_worst.append(logLw)
         Area.append(logwidth+logLw)
@@ -137,21 +171,23 @@ def nested_samplig(live_points,dim, resample_function=uniform_proposal):
         logZ = logZnew
         print("n:{0} L_worst = {1:.5f} --> width = {2:.5f} Z = {3:.5f}".format(i,
                                                                             np.exp(logLw), np.exp(logwidth), np.exp(logZ)))
-        new_sample, t, a = resample_function(live_points[Lw_idx], dim, logLw)
-        A.append(a)
+        new_sample, t = resample_function(live_points[Lw_idx], dim, logLw, survivor)
+        #A.append(a)
         T.append(t)
         live_points[Lw_idx] = new_sample
         logwidth -= 1.0/N
-        if -0.5*dim - i/N < f + logZ:
+        if dim*np.log(20) - 0.5*dim*np.log(np.pi) - i/N < f + logZ:
             break
         i += 1
-    return np.exp(Area), np.exp(Zlog), np.exp(logL_worst), prior_mass, np.exp(logZ), T, A
+        #time.sleep(1)
+    return np.exp(Area), np.exp(Zlog), np.exp(logL_worst), prior_mass, np.exp(logZ), T #, A
 
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Nested sampling')
     parser.add_argument('--dim', '-d', type=int, help='Dimension of the parameter space')
     parser.add_argument('--num_live_points', '-n', type=int, help='Number of live points')
+    parser.add_argument('--proposal', '-pr', type=int, help='Proposal for the new object from the prior. 0 for uniform, 1 for normal')
     parser.add_argument('--plot', '-p', action='store_true', help='Plot the plots')
     parser.add_argument("-log", "--log", default="info",
                         help=("Provide logging level. Example --log debug', default='info"))
@@ -170,7 +206,10 @@ if __name__ == "__main__":
     n = args.num_live_points
     dim = args.dim
     live_points = np.zeros((n, dim+2), dtype=np.float64) # the first dim columns for each row represents my multidimensional array of parameters
-    area_plot, evidence_plot, likelihood_worst, prior_mass, evidence, t_resample, prior_shrink = nested_samplig(live_points, dim, resample_function=uniform_proposal)
+    if args.proposal == 0:
+        area_plot, evidence_plot, likelihood_worst, prior_mass, evidence, t_resample = nested_samplig(live_points, dim, resample_function=uniform_proposal)
+    if args.proposal == 1:
+        area_plot, evidence_plot, likelihood_worst, prior_mass, evidence, t_resample = nested_samplig(live_points, dim, resample_function=normal_proposal)
 
     if args.plot:
         plt.figure()
@@ -196,14 +235,14 @@ if __name__ == "__main__":
         plt.xlabel('Iterations')
         plt.ylabel('Resampling time')
 
-        plt.figure()
-        plt.scatter(np.arange(len(prior_shrink)), prior_shrink, s=0.5)
-        plt.xlabel('Iterations')
-        plt.ylabel('Shrinking')
+        #plt.figure()
+        #plt.scatter(np.arange(len(prior_shrink)), prior_shrink, s=0.5)
+        #plt.xlabel('Iterations')
+        #plt.ylabel('Shrinking')
 
-        plt.figure()
-        plt.hist(prior_shrink, bins=10)
-        plt.show()
+        #plt.figure()
+        #plt.hist(prior_shrink, bins=10)
+        #plt.show()
 
     end = time.time()
     print('============ SUMMARY ============')
@@ -214,4 +253,9 @@ if __name__ == "__main__":
     print('Total time: {0:.2f} s'.format(t))
     print('=================================')
     plt.show()
+
+
+    # CONTROLLARE ANCORA LA PROPOSAL GAUSSIANA E LA CONDIZIONE DI TERMINAZIONE.
+    # IL PROBLEMA PRINCIPALE DA RISOLVERE È LA LENTEZZA DELL'ALGORITMO
+    # NON CAPISCO PERCHE' UNO STEP CHE MI SEMBRA SENSATO FACCIA AUMENTARE LA LIKELIHOOD COSÌ LENTAMENTE, MENTRE UNO STEP PIU' GRANDE VADA BENE
 
