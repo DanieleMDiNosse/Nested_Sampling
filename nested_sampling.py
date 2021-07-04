@@ -68,7 +68,7 @@ def log_prior(x, dim, boundary=10):
 
     return prior
 
-def uniform_proposal(x, dim, logLmin):
+def uniform_proposal(x, dim, logLmin, survivor):
     ''' Sample a new object from the prior subject to the constrain L(x_new) > Lworst_old
 
     Parameters
@@ -88,18 +88,19 @@ def uniform_proposal(x, dim, logLmin):
             a += np.abs(add)
             counter = 0
         new_line = np.zeros(dim+2, dtype=np.float64)
+        #new_line[:dim] = np.random.normal(survivor, 0.01, size=dim)
         new_line[:dim] = np.random.uniform(-10 + a, 10 - a, size=dim)
         new_log_prior = log_prior(new_line[:dim], dim)
         new_line[dim] = new_log_prior[0]
         # acceptance MH rule
-        # if (new_log_prior - x[:dim]).any() > np.log(np.random.uniform(0, 1)):
-        new_line[dim+1] = log_likelihood(new_line[:dim], dim, init=False)[0]
-        new_log_likelihood = new_line[dim+1]
-        if new_log_likelihood > logLmin:  # check if the new likelihood is greater then the old one
-            end = time.time()
-            t = end-start
-            print('Time for resampling: {0:.2f} s'.format(t))
-            return new_line, t, a
+        if (new_log_prior - x[:dim]).any() > np.log(np.random.uniform(0, 1)):
+            new_line[dim+1] = log_likelihood(new_line[:dim], dim, init=False)[0]
+            new_log_likelihood = new_line[dim+1]
+            if new_log_likelihood > logLmin:  # check if the new likelihood is greater then the old one
+                end = time.time()
+                t = end-start
+                print('Time for resampling: {0:.2f} s'.format(t))
+                return new_line, t, a
 
 def nested_samplig(live_points,dim, steps, resample_function=uniform_proposal):
     '''Nested Sampling by Skilling (2006)
@@ -119,6 +120,10 @@ def nested_samplig(live_points,dim, steps, resample_function=uniform_proposal):
         Lw_idx = np.argmin(live_points[:, dim+1])
         logLw = live_points[Lw_idx, dim+1]
         logZnew = np.logaddexp(logZ, logwidth[i]+logLw)
+        survivors = np.delete(live_points, Lw_idx, axis=0)
+        k = survivors.shape[0]
+        survivor = live_points[int(np.random.uniform(k)),:dim]
+        print(survivor)
 
         logL_worst.append(logLw)
         Area.append(logwidth[i]+logLw)
@@ -127,7 +132,7 @@ def nested_samplig(live_points,dim, steps, resample_function=uniform_proposal):
         logZ = logZnew
         print("n:{0} logL_worst = {1:.5f} --> width = {2:.5f} Z = {3:.5f}".format(i,
                                                                             np.exp(logLw), logwidth[i], np.exp(logZ)))
-        new_sample, t, a = resample_function(live_points[Lw_idx], dim, logLw)
+        new_sample, t, a = resample_function(live_points[Lw_idx], dim, logLw, survivor)
         A.append(a)
         T.append(t)
         live_points[Lw_idx] = new_sample
@@ -140,6 +145,7 @@ if __name__ == "__main__":
     parser.add_argument('--dim', '-d', type=int, help='Dimension of the parameter space')
     parser.add_argument('--num_live_points', '-n', type=int, help='Number of live points')
     parser.add_argument('--steps', '-s', type=int, help='Number steps')
+    parser.add_argument('--plot', '-p', action='store_true', help='Plot the plots')
     parser.add_argument("-log", "--log", default="info",
                         help=("Provide logging level. Example --log debug', default='info"))
 
@@ -159,33 +165,34 @@ if __name__ == "__main__":
     live_points = np.zeros((n, dim+2), dtype=np.float64) # the first dim columns for each row represents my multidimensional array of parameters
     area_plot, evidence_plot, likelihood_worst, prior_mass, evidence, t_resample, prior_shrink = nested_samplig(live_points, dim, steps=args.steps, resample_function=uniform_proposal)
 
-    plt.figure()
-    plt.plot(area_plot)
-    plt.xlabel('Iterations')
-    plt.ylabel('Areas Li*wi')
-    plt.title('Dynamics of the Area')
+    if args.plot:
+        plt.figure()
+        plt.plot(area_plot)
+        plt.xlabel('Iterations')
+        plt.ylabel('Areas Li*wi')
+        plt.title('Dynamics of the Area')
 
-    plt.figure()
-    plt.plot(evidence_plot)
-    plt.xlabel('Iterations')
-    plt.ylabel('Evidence Z')
-    plt.title('Evidence as functioon of iterations')
+        plt.figure()
+        plt.plot(evidence_plot)
+        plt.xlabel('Iterations')
+        plt.ylabel('Evidence Z')
+        plt.title('Evidence as functioon of iterations')
 
-    plt.figure()
-    plt.scatter(prior_mass[:len(likelihood_worst)], likelihood_worst, s=0.1)
-    plt.xlabel('log(X)')
-    plt.ylabel('Worst Likelihood')
+        plt.figure()
+        plt.scatter(prior_mass[:len(likelihood_worst)], likelihood_worst, s=0.1)
+        plt.xlabel('log(X)')
+        plt.ylabel('Worst Likelihood')
 
-    plt.figure()
-    plt.scatter(np.arange(args.steps),t_resample, s=0.5)
-    plt.yscale('log')
-    plt.xlabel('Iterations')
-    plt.ylabel('Resampling time')
+        plt.figure()
+        plt.scatter(np.arange(args.steps),t_resample, s=0.5)
+        plt.yscale('log')
+        plt.xlabel('Iterations')
+        plt.ylabel('Resampling time')
 
-    plt.figure()
-    plt.scatter(np.arange(args.steps), prior_shrink, s=0.5)
-    plt.xlabel('Iterations')
-    plt.ylabel('Shrinking')
+        plt.figure()
+        plt.scatter(np.arange(args.steps), prior_shrink, s=0.5)
+        plt.xlabel('Iterations')
+        plt.ylabel('Shrinking')
 
     end = time.time()
     print('Evidence = {0:.5f}'.format(evidence))
