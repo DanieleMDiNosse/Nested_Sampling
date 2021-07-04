@@ -83,7 +83,7 @@ def uniform_proposal(x, dim, logLmin):
     shrink = 0
     while True:
         counter += 1
-        if counter > 150:
+        if counter > 200:
             shrink += 1
             counter = 0
         new_line = np.zeros(dim+2, dtype=np.float64)
@@ -106,7 +106,7 @@ def nested_samplig(live_points,dim, resample_function=uniform_proposal):
     '''
 
     N = live_points.shape[0]
-    f = 0.0001
+    f = np.log(0.00001)
     Area = []; Zlog = []; logL_worst = []; T = []; A = [] # lists for plots
 
     logZ = -np.inf
@@ -135,16 +135,16 @@ def nested_samplig(live_points,dim, resample_function=uniform_proposal):
         Zlog.append(logZnew)
 
         logZ = logZnew
-        print("n:{0} logL_worst = {1:.5f} --> width = {2:.5f} Z = {3:.5f}".format(i,
-                                                                            np.exp(logLw), logwidth, np.exp(logZ)))
+        print("n:{0} L_worst = {1:.5f} --> width = {2:.5f} Z = {3:.5f}".format(i,
+                                                                            np.exp(logLw), np.exp(logwidth), np.exp(logZ)))
         new_sample, t, a = resample_function(live_points[Lw_idx], dim, logLw)
         A.append(a)
         T.append(t)
         live_points[Lw_idx] = new_sample
         logwidth -= 1.0/N
-        i += 1
-        if (1/np.sqrt(2*np.pi))**dim * np.exp(-i/N) < f*np.exp(logZ):
+        if -0.5*dim - i/N < f + logZ:
             break
+        i += 1
     return np.exp(Area), np.exp(Zlog), np.exp(logL_worst), prior_mass, np.exp(logZ), T, A
 
 if __name__ == "__main__":
@@ -201,9 +201,14 @@ if __name__ == "__main__":
         plt.xlabel('Iterations')
         plt.ylabel('Shrinking')
 
+        plt.figure()
+        plt.hist(prior_shrink, bins=10)
+        plt.show()
+
     end = time.time()
     print('============ SUMMARY ============')
     print('Evidence = {0:.5f}'.format(evidence))
+    print('Last area value = {0:.5f}'.format(area_plot[-1]))
     print('Check of priors sum: ', prior_mass)
     t = end-start
     print('Total time: {0:.2f} s'.format(t))
