@@ -92,7 +92,7 @@ def uniform_proposal(x, dim, logLmin, survivor):
         new_log_prior = log_prior(new_line[:dim], dim)
         new_line[dim] = new_log_prior[0]
         # acceptance MH rule
-        if (new_log_prior - x[:dim]).any() > np.log(np.random.uniform(0, 1)):
+        if (new_log_prior - x[:dim]).all() > np.log(np.random.uniform(0, 1)):
             new_line[dim+1] = log_likelihood(new_line[:dim], dim, init=False)[0]
             new_log_likelihood = new_line[dim+1]
             if new_log_likelihood > logLmin:  # check if the new likelihood is greater then the old one
@@ -120,38 +120,49 @@ def normal_proposal(x, dim, logLmin, survivor):
         new_line = np.zeros(dim+2, dtype=np.float64)
         step = np.random.multivariate_normal(zeros, diag)
         new_line[:dim] = survivor + step
+        for i in  range(len(new_line[:dim])):
+            while np.abs(new_line[:dim][i]) > 10.:
+                #print(f'Out of the bounds: {np.abs(new_line[:dim])}')
+                step = np.random.multivariate_normal(zeros, diag)
+                new_line[:dim] = survivor + step
+        #print(f'In the bounds: {np.abs(new_line[:dim])}')
         new_log_prior = log_prior(new_line[:dim], dim)
-        new_line[dim] = new_log_prior[0]
-        # acceptance MH rule
-        if (new_log_prior - x[:dim]).any() > np.log(np.random.uniform(0, 1)):
-            new_line[dim+1] = log_likelihood(new_line[:dim], dim, init=False)[0]
-            new_log_likelihood = new_line[dim+1]
-            if new_log_likelihood > logLmin:  # check if the new likelihood is greater then the old one
-                end = time.time()
-                t = end-start
-                print('Time for resampling: {0:.2f} s'.format(t))
-                print(new_line)
-                return new_line, t
+        new_line[dim] = new_log_prior[0] # I choose the first since the prior is uniform and the values
+                                        #  are all the same
+        #diff = new_log_prior[0] - x[dim]
+        #print(diff)
+        #acc_num = np.log(np.random.uniform(0, 1))
+        #if diff > acc_num: # acceptance MH rule
+        new_line[dim+1] = log_likelihood(new_line[:dim], dim, init=False)[0]
+        new_log_likelihood = new_line[dim+1]
+        if new_log_likelihood > logLmin:  # check if the new likelihood is greater then the old one
+            end = time.time()
+            t = end-start
+            #print('Time for resampling: {0:.2f} s'.format(t))
+            return new_line, t
 
-def nested_samplig(live_points,dim, resample_function=uniform_proposal):
+def nested_samplig(live_points, dim, resample_function=uniform_proposal):
     '''Nested Sampling by Skilling (2006)
     '''
 
     N = live_points.shape[0]
     f = np.log(0.01)
-    Area = []; Zlog = []; logL_worst = []; T = []; A = [] # lists for plots
+    Area = []; Zlog = []; logL_worst = []; T = []; A = []; # lists for plots
 
     logZ = -np.inf
     parameters = np.random.uniform(-10, 10, size=(N, dim))
-    #distances = np.diff(parameters)
-    #print(distances.mean(),distances.std())
     live_points[:, :dim] = parameters
     live_points[:, dim] = log_prior(parameters, dim)
+    print('========== INITIAL INFO ==========')
+    print('Maximun of the likelihood: {0:.5f}'.format((2*boundary/np.sqrt(2*np.pi))**dim))
+    print('Average initial difference between sampled points \n: {0} '.format(np.mean(np.diff(np.abs(live_points[:,:dim]), axis=0), axis=0)))
+    sec = 3
+    print(f'Nested sampling is going to start in {sec} seconds...')
+    print('==================================')
+    time.sleep(sec)
     live_points[:, dim+1] = log_likelihood(parameters, dim, init=True)
-    #logwidth = np.zeros(steps+1)
     logwidth = np.log(1.0 - np.exp(-1.0/N))
     prior_mass = 0
-    #for i in range(steps):
     i = 0
     while True:
         prior_mass += np.exp(logwidth)
@@ -162,16 +173,17 @@ def nested_samplig(live_points,dim, resample_function=uniform_proposal):
         survivors = np.delete(live_points, Lw_idx, axis=0)
         k = survivors.shape[0]
         survivor = live_points[int(np.random.uniform(k)),:dim]
-        #print('survivor, Lw ',survivor, logLw)
 
         logL_worst.append(logLw)
         Area.append(logwidth+logLw)
         Zlog.append(logZnew)
 
         logZ = logZnew
-        print("n:{0} L_worst = {1:.5f} --> width = {2:.5f} Z = {3:.5f}".format(i,
-                                                                            np.exp(logLw), np.exp(logwidth), np.exp(logZ)))
+        #print("n:{0} L_worst = {1:.5f} --> width = {2:.5f} Z = {3:.5f}".format(i,
+                                                                        #np.exp(logLw), np.exp(logwidth), np.exp(logZ)))
+
         new_sample, t = resample_function(live_points[Lw_idx], dim, logLw, survivor)
+        survivor = new_sample[:dim]
         #A.append(a)
         T.append(t)
         live_points[Lw_idx] = new_sample
@@ -179,14 +191,14 @@ def nested_samplig(live_points,dim, resample_function=uniform_proposal):
         if dim*np.log(20) - 0.5*dim*np.log(np.pi) - i/N < f + logZ:
             break
         i += 1
-        #time.sleep(1)
-    return np.exp(Area), np.exp(Zlog), np.exp(logL_worst), prior_mass, np.exp(logZ), T #, A
+    return np.exp(Area), np.exp(Zlog), np.exp(logL_worst), prior_mass, np.exp(logZ), T, i
 
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Nested sampling')
     parser.add_argument('--dim', '-d', type=int, help='Dimension of the parameter space')
     parser.add_argument('--num_live_points', '-n', type=int, help='Number of live points')
+    parser.add_argument('--boundary', '-b', type=int, default=10, help='Boundaries for the prior (centered at zero). The default is 10 ')
     parser.add_argument('--proposal', '-pr', type=int, help='Proposal for the new object from the prior. 0 for uniform, 1 for normal')
     parser.add_argument('--plot', '-p', action='store_true', help='Plot the plots')
     parser.add_argument("-log", "--log", default="info",
@@ -201,15 +213,19 @@ if __name__ == "__main__":
               'debug': logging.DEBUG}
 
     logging.basicConfig(level=levels[args.log])
+    np.random.seed(95)
 
     start = time.time()
     n = args.num_live_points
     dim = args.dim
+    boundary = args.boundary
     live_points = np.zeros((n, dim+2), dtype=np.float64) # the first dim columns for each row represents my multidimensional array of parameters
     if args.proposal == 0:
-        area_plot, evidence_plot, likelihood_worst, prior_mass, evidence, t_resample = nested_samplig(live_points, dim, resample_function=uniform_proposal)
+        prop = 'Uniform'
+        area_plot, evidence_plot, likelihood_worst, prior_mass, evidence, t_resample, steps = nested_samplig(live_points, dim, resample_function=uniform_proposal)
     if args.proposal == 1:
-        area_plot, evidence_plot, likelihood_worst, prior_mass, evidence, t_resample = nested_samplig(live_points, dim, resample_function=normal_proposal)
+        prop = 'Normal'
+        area_plot, evidence_plot, likelihood_worst, prior_mass, evidence, t_resample, steps = nested_samplig(live_points, dim, resample_function=normal_proposal)
 
     if args.plot:
         plt.figure()
@@ -246,16 +262,19 @@ if __name__ == "__main__":
 
     end = time.time()
     print('============ SUMMARY ============')
+    print('Dimension of the integral = {0}'.format(dim))
+    print('Number of steps required = {0}'.format(steps))
+    print('Number of live points = {0}'.format(args.num_live_points))
     print('Evidence = {0:.5f}'.format(evidence))
+    print(f'Proposal chosen: {prop}')
     print('Last area value = {0:.5f}'.format(area_plot[-1]))
-    print('Check of priors sum: ', prior_mass)
+    print('Mass prior sum = {0:.2f} '.format(prior_mass))
     t = end-start
     print('Total time: {0:.2f} s'.format(t))
     print('=================================')
     plt.show()
 
 
-    # CONTROLLARE ANCORA LA PROPOSAL GAUSSIANA E LA CONDIZIONE DI TERMINAZIONE.
-    # IL PROBLEMA PRINCIPALE DA RISOLVERE È LA LENTEZZA DELL'ALGORITMO
-    # NON CAPISCO PERCHE' UNO STEP CHE MI SEMBRA SENSATO FACCIA AUMENTARE LA LIKELIHOOD COSÌ LENTAMENTE, MENTRE UNO STEP PIU' GRANDE VADA BENE
+# CAPIRE IL MOTIVO PER CUI SE ELIMINO L'ACCETTANZA DEL MH IL RISULTATO CAMBIA, SEBBENE DIFF SIA SEMPRE NULLO.
+# IL PROBLEMA DELL'ESUBERO ECCESSIVO DA Z=1 PER DIMENSIONI ELEVATE (GIA' <10) PERSISTE E NON NE CAPISCO IL MOTIVO
 
