@@ -243,11 +243,14 @@ if __name__ == "__main__":
         ax2.plot(evidence_plot, color = 'r', label = 'Z')
         ax1.set_xlabel('Iterations')
         plt.grid()
+        fig.legend()
+        plt.savefig(f'results/images/{args.proposal}/area_dynamics_{dim}.png')
 
         plt.figure()
         plt.scatter(prior_mass[:len(likelihood_worst)], likelihood_worst, s=0.1, c='k')
         plt.xlabel('log(X)')
         plt.ylabel('Worst Likelihood')
+        plt.savefig(f'results/images/{args.proposal}/worst_likelihood_{dim}.png')
 
         plt.figure()
         plt.scatter(np.arange(len(t_resample)),t_resample, s=0.5, c='k')
@@ -255,6 +258,7 @@ if __name__ == "__main__":
         plt.xlabel('Iterations')
         plt.ylabel('Resampling time')
         plt.title('Time for resampling')
+        plt.savefig(f'results/images/{args.proposal}/resampling_time_{dim}.png')
 
     end = time.time()
     with open(f'results/summaries/{args.proposal}/Summary_{dim}.txt', 'w', encoding='utf-8') as file:
