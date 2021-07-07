@@ -1,0 +1,19 @@
+============ SUMMARY ============
+                    
+ Dimension of the integral = 4
+                    
+ Number of steps required = 12834
+                    
+ Evidence = 1.08
+                    
+ Proposal chosen: Normal
+                    
+ Last area value = 0.00
+ Manual shrinkage of the proposal std = 0.98
+ Accepted and rejected points: 12835, 6490
+                    
+ Mass prior sum = 1.00
+                    
+ Total time: 27.90 s
+                    
+=================================
