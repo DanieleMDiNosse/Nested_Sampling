@@ -2,18 +2,22 @@
                     
  Dimension of the integral = 1
                     
- Number of steps required = 7001
+ Number of steps required = 6553
                     
- Evidence = 1.03
+ Evidence = 1.14
+                    
+ Maximum of the likelihood = 7.98
                     
  Proposal chosen: Uniform
                     
  Last area value = 0.00
- Manual shrinkage of the prior domain = 0.69
- Accepted and rejected points: 7002, 438062
+                    
+ Last worst Likelihood = 7.978444467643905
+ Manual shrinkage of the prior domain = 0.64
+ Accepted and rejected points: 6554, 38549
                     
  Mass prior sum = 1.00
                     
- Total time: 13.93 s
+ Total time: 2.33 s
                     
 =================================

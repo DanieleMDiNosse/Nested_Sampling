@@ -2,18 +2,20 @@
                     
  Dimension of the integral = 10
                     
- Number of steps required = 30605
+ Number of steps required = 267555
                     
- Evidence = 0.01
+ Evidence = 0.00
+                    
+ Maximum of the likelihood = 1045684365.78
                     
  Proposal chosen: Normal
                     
  Last area value = 0.00
  Manual shrinkage of the proposal std = 0.98
- Accepted and rejected points: 30606, 11401
+ Accepted and rejected points: 267556, 82924
                     
  Mass prior sum = 1.00
                     
- Total time: 70.69 s
+ Total time: 98.04 s
                     
 =================================
