@@ -84,9 +84,9 @@ def uniform_proposal(x, dim, logLmin, survivor, shrink):
     rejected = 0
     while True:
         new_line = np.zeros(dim+2, dtype=np.float64)
-        step = np.random.uniform(-1 + shrink, 1 - shrink)
-        new_line[:dim] = survivor + step
-        #new_line[:dim] = np.random.uniform(-10 + 10*shrink, 10 - 10*shrink, size=dim)
+        #step = np.random.uniform(-1 + shrink, 1 - shrink)
+        #new_line[:dim] = survivor + step
+        new_line[:dim] = np.random.uniform(-10 + 10*shrink, 10 - 10*shrink, size=dim)
         new_log_prior = log_prior(new_line[:dim], dim)
         new_line[dim] = new_log_prior[0]
         # acceptance MH rule
@@ -119,7 +119,7 @@ def normal_proposal(x, dim, logLmin, survivor, shrink):
     while True:
         counter += 1
         zeros = np.zeros(dim)
-        diag = np.diag(np.ones(dim)) - np.diag(np.zeros(dim))
+        diag = np.diag(np.ones(dim)) - np.diag(np.zeros(dim) + shrink)
         new_line = np.zeros(dim+2, dtype=np.float64)
         step = np.random.multivariate_normal(zeros, diag)
         new_line[:dim] = survivor + step
@@ -136,7 +136,7 @@ def normal_proposal(x, dim, logLmin, survivor, shrink):
             new_log_likelihood = new_line[dim+1]
             if new_log_likelihood < logLmin:
                 rejected += 1
-                survivor = new_line[:dim]
+                #survivor = new_line[:dim]
             if new_log_likelihood > logLmin:
                 accepted += 1
                 end = time.time()
@@ -285,4 +285,12 @@ if __name__ == "__main__":
                     \n Total time: {end-start:.2f} s
                     \n=================================''')
 
+# LA SITUAZIONE ATTUALE È:
+# - CON L'UNIFORME Z MI SCHIZZA AD ALTE DIMENSIONI
+# - CON LA GAUSSIANA MI VA A ZERO AD ALTE DIMENSIONI
+# SE L'UNIFORME LA CENTRO IN SURVIVOR, PURE MI VA A ZERO PER ALTE DIMENSIONI
+# SE AGGIORNO NEW_LINE[:DIM] = SURVIVOR QUANDO IL PUNTO VIENE RIFIUTATO, I TEMPI DIVENTANO
+# INFINITI
+
+# LA SITUAZIONE MIGLIORE PER ORA E' FAR RUNNARE IL TUTTO COME STA. ALMENO NON CI METTE UNA VITA.
 

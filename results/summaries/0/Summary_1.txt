@@ -2,9 +2,9 @@
                     
  Dimension of the integral = 1
                     
- Number of steps required = 6553
+ Number of steps required = 6657
                     
- Evidence = 1.14
+ Evidence = 1.03
                     
  Maximum of the likelihood = 7.98
                     
@@ -12,12 +12,12 @@
                     
  Last area value = 0.00
                     
- Last worst Likelihood = 7.978444467643905
- Manual shrinkage of the prior domain = 0.64
- Accepted and rejected points: 6554, 38549
+ Last worst Likelihood = 7.978168948726019
+ Manual shrinkage of the prior domain = 0.65
+ Accepted and rejected points: 6658, 337042
                     
  Mass prior sum = 1.00
                     
- Total time: 2.33 s
+ Total time: 12.09 s
                     
 =================================
