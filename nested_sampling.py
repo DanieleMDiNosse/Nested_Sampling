@@ -68,7 +68,7 @@ def log_prior(x, dim, boundary=10):
 
     return prior
 
-def uniform_proposal(x, dim, logLmin, survivor):
+def uniform_proposal(x, dim, logLmin, survivor, shrink):
     ''' Sample a new object from the prior subject to the constrain L(x_new) > Lworst_old
 
     Parameters
@@ -79,29 +79,27 @@ def uniform_proposal(x, dim, logLmin, survivor):
         Worst likelihood, i.e. The third element of x
     '''
     start = time.time()
-    counter = 0
-    shrink = 0
+    accepted = 0
+    rejected = 0
     while True:
-        counter += 1
-        if counter > 200:
-            shrink += 1
-            counter = 0
         new_line = np.zeros(dim+2, dtype=np.float64)
-        #new_line[:dim] = np.random.normal(survivor, 0.01, size=dim)
-        new_line[:dim] = np.random.uniform(-10 + 10*shrink/700, 10 - 10*shrink/700, size=dim)
+        new_line[:dim] = np.random.uniform(-10 + 10*shrink, 10 - 10*shrink, size=dim)
         new_log_prior = log_prior(new_line[:dim], dim)
         new_line[dim] = new_log_prior[0]
         # acceptance MH rule
         if (new_log_prior - x[:dim]).all() > np.log(np.random.uniform(0, 1)):
             new_line[dim+1] = log_likelihood(new_line[:dim], dim, init=False)[0]
             new_log_likelihood = new_line[dim+1]
-            if new_log_likelihood > logLmin:  # check if the new likelihood is greater then the old one
+            if new_log_likelihood < logLmin:
+                rejected += 1
+            if new_log_likelihood > logLmin:
+                accepted += 1
                 end = time.time()
                 t = end-start
-                print('Time for resampling: {0:.2f} s'.format(t))
-                return new_line, t #, shrink
+                #print('Time for resampling: {0:.2f} s'.format(t))
+                return new_line, t, accepted, rejected
 
-def normal_proposal(x, dim, logLmin, survivor):
+def normal_proposal(x, dim, logLmin, survivor, shrink):
     ''' Sample a new object from the prior subject to the constrain L(x_new) > Lworst_old
 
     Parameters
@@ -116,30 +114,26 @@ def normal_proposal(x, dim, logLmin, survivor):
     while True:
         counter += 1
         zeros = np.zeros(dim)
-        diag = np.diag(np.ones(dim))
+        diag = np.diag(np.ones(dim)) - np.diag(np.zeros(dim) + shrink)
         new_line = np.zeros(dim+2, dtype=np.float64)
         step = np.random.multivariate_normal(zeros, diag)
         new_line[:dim] = survivor + step
         for i in  range(len(new_line[:dim])):
             while np.abs(new_line[:dim][i]) > 10.:
-                #print(f'Out of the bounds: {np.abs(new_line[:dim])}')
                 step = np.random.multivariate_normal(zeros, diag)
                 new_line[:dim] = survivor + step
-        #print(f'In the bounds: {np.abs(new_line[:dim])}')
         new_log_prior = log_prior(new_line[:dim], dim)
-        new_line[dim] = new_log_prior[0] # I choose the first since the prior is uniform and the values
-                                        #  are all the same
-        #diff = new_log_prior[0] - x[dim]
-        #print(diff)
-        #acc_num = np.log(np.random.uniform(0, 1))
-        #if diff > acc_num: # acceptance MH rule
-        new_line[dim+1] = log_likelihood(new_line[:dim], dim, init=False)[0]
-        new_log_likelihood = new_line[dim+1]
-        if new_log_likelihood > logLmin:  # check if the new likelihood is greater then the old one
-            end = time.time()
-            t = end-start
-            #print('Time for resampling: {0:.2f} s'.format(t))
-            return new_line, t
+        new_line[dim] = new_log_prior[0] # I choose the first since the priors are all the same
+        diff = new_log_prior[0] - x[dim]
+        acc_num = np.log(np.random.uniform(0,1))
+        if diff > acc_num: # acceptance MH rule
+            new_line[dim+1] = log_likelihood(new_line[:dim], dim, init=False)[0]
+            new_log_likelihood = new_line[dim+1]
+            if new_log_likelihood > logLmin:
+                end = time.time()
+                t = end-start
+                print('Time for resampling: {0:.2f} s'.format(t))
+                return new_line, t
 
 def nested_samplig(live_points, dim, resample_function=uniform_proposal):
     '''Nested Sampling by Skilling (2006)
@@ -153,19 +147,31 @@ def nested_samplig(live_points, dim, resample_function=uniform_proposal):
     parameters = np.random.uniform(-10, 10, size=(N, dim))
     live_points[:, :dim] = parameters
     live_points[:, dim] = log_prior(parameters, dim)
-    print('========== INITIAL INFO ==========')
-    print('Maximun of the likelihood: {0:.5f}'.format((2*boundary/np.sqrt(2*np.pi))**dim))
-    print('Average initial difference between sampled points \n: {0} '.format(np.mean(np.diff(np.abs(live_points[:,:dim]), axis=0), axis=0)))
-    sec = 3
-    print(f'Nested sampling is going to start in {sec} seconds...')
-    print('==================================')
-    time.sleep(sec)
+    #avg = np.mean(np.mean(np.diff(np.abs(live_points[:,:dim]), axis=0), axis=0))
+    #print('========== INITIAL INFO ==========')
+    #print('Maximun of the log(L): {0:.5f}'.format(dim*np.log(2*boundary) - 0.5*dim*np.log(np.pi)))
+    #print('Average initial difference between sampled points \n: {0:.5f} '.format(np.abs(avg)))
+    #sec = 2
+    #print('Nested sampling is going to start in {0} seconds...'.format(sec))
+    #print('==================================')
+    #time.sleep(sec)
     live_points[:, dim+1] = log_likelihood(parameters, dim, init=True)
     logwidth = np.log(1.0 - np.exp(-1.0/N))
-    prior_mass = 0
-    i = 0
+    prior_mass = []
+    steps = 0
+    c = 0
+    shrink = 0
+    accepted = 0
+    rejected = 0
     while True:
-        prior_mass += np.exp(logwidth)
+        if c > 100:
+            c = 0
+            shrink += 0.01
+            if shrink > 0.99:
+                shrink = 0.98
+        c +=1
+        #prior_mass += np.exp(logwidth)
+        prior_mass.append(logwidth)
         Lw_idx = np.argmin(live_points[:, dim+1])
         logLw = live_points[Lw_idx, dim+1]
         logZnew = np.logaddexp(logZ, logwidth+logLw)
@@ -179,19 +185,21 @@ def nested_samplig(live_points, dim, resample_function=uniform_proposal):
         Zlog.append(logZnew)
 
         logZ = logZnew
-        #print("n:{0} L_worst = {1:.5f} --> width = {2:.5f} Z = {3:.5f}".format(i,
-                                                                        #np.exp(logLw), np.exp(logwidth), np.exp(logZ)))
+        print("n:{0} log(Lw) = {1:.5f} --> log(w) = {2:.5f} log(Z) = {3:.5f}".format(steps,
+                                                                        logLw, logwidth, logZ))
 
-        new_sample, t = resample_function(live_points[Lw_idx], dim, logLw, survivor)
+        new_sample, t, acc, rej = resample_function(live_points[Lw_idx], dim, logLw, survivor, shrink)
+        accepted += acc
+        rejected += rej
         survivor = new_sample[:dim]
         #A.append(a)
         T.append(t)
         live_points[Lw_idx] = new_sample
         logwidth -= 1.0/N
-        if dim*np.log(20) - 0.5*dim*np.log(np.pi) - i/N < f + logZ:
+        if dim*np.log(2*boundary) - 0.5*dim*np.log(np.pi) - steps/N < f + logZ:
             break
-        i += 1
-    return np.exp(Area), np.exp(Zlog), np.exp(logL_worst), prior_mass, np.exp(logZ), T, i
+        steps += 1
+    return np.exp(Area), np.exp(Zlog), np.exp(logL_worst), prior_mass, np.exp(logZ), T, steps, shrink, accepted, rejected
 
 if __name__ == "__main__":
 
@@ -222,59 +230,64 @@ if __name__ == "__main__":
     live_points = np.zeros((n, dim+2), dtype=np.float64) # the first dim columns for each row represents my multidimensional array of parameters
     if args.proposal == 0:
         prop = 'Uniform'
-        area_plot, evidence_plot, likelihood_worst, prior_mass, evidence, t_resample, steps = nested_samplig(live_points, dim, resample_function=uniform_proposal)
+        area_plot, evidence_plot, likelihood_worst, prior_mass, evidence, t_resample, steps, shrink, acc, rej = nested_samplig(live_points, dim, resample_function=uniform_proposal)
     if args.proposal == 1:
         prop = 'Normal'
-        area_plot, evidence_plot, likelihood_worst, prior_mass, evidence, t_resample, steps = nested_samplig(live_points, dim, resample_function=normal_proposal)
+        area_plot, evidence_plot, likelihood_worst, prior_mass, evidence, t_resample, steps, shrink = nested_samplig(live_points, dim, resample_function=normal_proposal)
 
     if args.plot:
-        plt.figure()
-        plt.plot(area_plot)
-        plt.xlabel('Iterations')
-        plt.ylabel('Areas Li*wi')
-        plt.title('Dynamics of the Area')
+
+        fig, ax1 = plt.subplots()
+        ax1.plot(area_plot, color = 'k', label = 'Li*wi')
+        ax2 = ax1.twinx()
+        ax2.plot(evidence_plot, color = 'r', label = 'Z')
+        ax1.set_xlabel('Iterations')
+        plt.grid()
 
         plt.figure()
-        plt.plot(evidence_plot)
-        plt.xlabel('Iterations')
-        plt.ylabel('Evidence Z')
-        plt.title('Evidence as functioon of iterations')
-
-        #plt.figure()
-        #plt.scatter(prior_mass[:len(likelihood_worst)], likelihood_worst, s=0.1)
-        #plt.xlabel('log(X)')
-        #plt.ylabel('Worst Likelihood')
+        plt.scatter(prior_mass[:len(likelihood_worst)], likelihood_worst, s=0.1, c='k')
+        plt.xlabel('log(X)')
+        plt.ylabel('Worst Likelihood')
 
         plt.figure()
-        plt.scatter(np.arange(len(t_resample)),t_resample, s=0.5)
+        plt.scatter(np.arange(len(t_resample)),t_resample, s=0.5, c='k')
         plt.yscale('log')
         plt.xlabel('Iterations')
         plt.ylabel('Resampling time')
-
-        #plt.figure()
-        #plt.scatter(np.arange(len(prior_shrink)), prior_shrink, s=0.5)
-        #plt.xlabel('Iterations')
-        #plt.ylabel('Shrinking')
-
-        #plt.figure()
-        #plt.hist(prior_shrink, bins=10)
-        #plt.show()
+        plt.title('Time for resampling')
 
     end = time.time()
-    print('============ SUMMARY ============')
-    print('Dimension of the integral = {0}'.format(dim))
-    print('Number of steps required = {0}'.format(steps))
-    print('Number of live points = {0}'.format(args.num_live_points))
-    print('Evidence = {0:.5f}'.format(evidence))
-    print(f'Proposal chosen: {prop}')
-    print('Last area value = {0:.5f}'.format(area_plot[-1]))
-    print('Mass prior sum = {0:.2f} '.format(prior_mass))
-    t = end-start
-    print('Total time: {0:.2f} s'.format(t))
-    print('=================================')
+    with open(f'results/summaries/{args.proposal}/Summary_{dim}.txt', 'w', encoding='utf-8') as file:
+        file.write(f'''============ SUMMARY ============
+                   \n Dimension of the integral = {dim}
+                   \n Number of steps required = {steps}
+                   \n Evidence = {evidence:.2f}
+                   \n Proposal chosen: {prop}
+                   \n Last area value = {area_plot[-1]:.2f}''')
+        if args.proposal == 0:
+            file.write(f'\n Manual shrinkage of the prior domain = {shrink:.2f}')
+        if args.proposal == 1:
+            file.write(f'\n Manual shrinkage of the proposal std = {shrink:.2f}')
+        file.write(f'''\n Accepted and rejected points: {acc}, {rej}
+                   \n Mass prior sum = {np.exp(prior_mass).sum():.2f}
+                   \n Total time: {end-start:.2f} s
+                   \n=================================''')
+    #print('============ SUMMARY ============')
+    #print('\n Dimension of the integral = {0}'.format(dim))
+    #print('\n Number of steps required = {0}'.format(steps))
+    #print('\n Number of live points = {0}'.format(args.num_live_points))
+    #print('\n Evidence = {0:.5f}'.format(evidence))
+    #print(f'\n Proposal chosen: {prop}')
+    #print('\n Last area value = {0:.5f}'.format(area_plot[-1]))
+    #if args.proposal == 0:
+        #print('\n Manual shrinkage of the prior domain = {0:.2f}'.format(shrink))
+    #if args.proposal == 1:
+        #print('\n Manual shrinkage of the proposal std = {0:.2f}'.format(shrink))
+    #print('\n Accepted and rejected points: {0}, {1}'.format(acc, rej))
+    #print('\n Mass prior sum = {0:.2f} '.format(np.exp(prior_mass).sum()))
+    #t = end-start
+    #print('\n Total time: {0:.2f} s'.format(t))
+    #print('=================================')
     plt.show()
 
-
-# CAPIRE IL MOTIVO PER CUI SE ELIMINO L'ACCETTANZA DEL MH IL RISULTATO CAMBIA, SEBBENE DIFF SIA SEMPRE NULLO.
-# IL PROBLEMA DELL'ESUBERO ECCESSIVO DA Z=1 PER DIMENSIONI ELEVATE (GIA' <10) PERSISTE E NON NE CAPISCO IL MOTIVO
 
