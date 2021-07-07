@@ -1,7 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import logging
 import argparse
+import logging
+from tqdm import tqdm
 import time
 
 
@@ -147,14 +148,6 @@ def nested_samplig(live_points, dim, resample_function=uniform_proposal):
     parameters = np.random.uniform(-10, 10, size=(N, dim))
     live_points[:, :dim] = parameters
     live_points[:, dim] = log_prior(parameters, dim)
-    #avg = np.mean(np.mean(np.diff(np.abs(live_points[:,:dim]), axis=0), axis=0))
-    #print('========== INITIAL INFO ==========')
-    #print('Maximun of the log(L): {0:.5f}'.format(dim*np.log(2*boundary) - 0.5*dim*np.log(np.pi)))
-    #print('Average initial difference between sampled points \n: {0:.5f} '.format(np.abs(avg)))
-    #sec = 2
-    #print('Nested sampling is going to start in {0} seconds...'.format(sec))
-    #print('==================================')
-    #time.sleep(sec)
     live_points[:, dim+1] = log_likelihood(parameters, dim, init=True)
     logwidth = np.log(1.0 - np.exp(-1.0/N))
     prior_mass = []
@@ -185,8 +178,8 @@ def nested_samplig(live_points, dim, resample_function=uniform_proposal):
         Zlog.append(logZnew)
 
         logZ = logZnew
-        print("n:{0} log(Lw) = {1:.5f} --> log(w) = {2:.5f} log(Z) = {3:.5f}".format(steps,
-                                                                        logLw, logwidth, logZ))
+        #print("n:{0} log(Lw) = {1:.5f} --> log(w) = {2:.5f} log(Z) = {3:.5f}".format(steps,
+                                                                        #logLw, logwidth, logZ))
 
         new_sample, t, acc, rej = resample_function(live_points[Lw_idx], dim, logLw, survivor, shrink)
         accepted += acc
@@ -204,7 +197,7 @@ def nested_samplig(live_points, dim, resample_function=uniform_proposal):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Nested sampling')
-    parser.add_argument('--dim', '-d', type=int, help='Dimension of the parameter space')
+    parser.add_argument('--dim', '-d', type=int, help='Max dimension of the parameter spaces')
     parser.add_argument('--num_live_points', '-n', type=int, help='Number of live points')
     parser.add_argument('--boundary', '-b', type=int, default=10, help='Boundaries for the prior (centered at zero). The default is 10 ')
     parser.add_argument('--proposal', '-pr', type=int, help='Proposal for the new object from the prior. 0 for uniform, 1 for normal')
@@ -227,71 +220,55 @@ if __name__ == "__main__":
     n = args.num_live_points
     dim = args.dim
     boundary = args.boundary
-    live_points = np.zeros((n, dim+2), dtype=np.float64) # the first dim columns for each row represents my multidimensional array of parameters
-    if args.proposal == 0:
-        prop = 'Uniform'
-        area_plot, evidence_plot, likelihood_worst, prior_mass, evidence, t_resample, steps, shrink, acc, rej = nested_samplig(live_points, dim, resample_function=uniform_proposal)
-    if args.proposal == 1:
-        prop = 'Normal'
-        area_plot, evidence_plot, likelihood_worst, prior_mass, evidence, t_resample, steps, shrink = nested_samplig(live_points, dim, resample_function=normal_proposal)
-
-    if args.plot:
-
-        fig, ax1 = plt.subplots()
-        ax1.plot(area_plot, color = 'k', label = 'Li*wi')
-        ax2 = ax1.twinx()
-        ax2.plot(evidence_plot, color = 'r', label = 'Z')
-        ax1.set_xlabel('Iterations')
-        plt.grid()
-        fig.legend()
-        plt.savefig(f'results/images/{args.proposal}/area_dynamics_{dim}.png')
-
-        plt.figure()
-        plt.scatter(prior_mass[:len(likelihood_worst)], likelihood_worst, s=0.1, c='k')
-        plt.xlabel('log(X)')
-        plt.ylabel('Worst Likelihood')
-        plt.savefig(f'results/images/{args.proposal}/worst_likelihood_{dim}.png')
-
-        plt.figure()
-        plt.scatter(np.arange(len(t_resample)),t_resample, s=0.5, c='k')
-        plt.yscale('log')
-        plt.xlabel('Iterations')
-        plt.ylabel('Resampling time')
-        plt.title('Time for resampling')
-        plt.savefig(f'results/images/{args.proposal}/resampling_time_{dim}.png')
-
-    end = time.time()
-    with open(f'results/summaries/{args.proposal}/Summary_{dim}.txt', 'w', encoding='utf-8') as file:
-        file.write(f'''============ SUMMARY ============
-                   \n Dimension of the integral = {dim}
-                   \n Number of steps required = {steps}
-                   \n Evidence = {evidence:.2f}
-                   \n Proposal chosen: {prop}
-                   \n Last area value = {area_plot[-1]:.2f}''')
+    for d in tqdm(range(1,dim+1)):
+        live_points = np.zeros((n, d+2), dtype=np.float64) # the first dim columns for each row represents my multidimensional array of parameters
         if args.proposal == 0:
-            file.write(f'\n Manual shrinkage of the prior domain = {shrink:.2f}')
+            prop = 'Uniform'
+            area_plot, evidence_plot, likelihood_worst, prior_mass, evidence, t_resample, steps, shrink, acc, rej = nested_samplig(live_points, d, resample_function=uniform_proposal)
         if args.proposal == 1:
-            file.write(f'\n Manual shrinkage of the proposal std = {shrink:.2f}')
-        file.write(f'''\n Accepted and rejected points: {acc}, {rej}
-                   \n Mass prior sum = {np.exp(prior_mass).sum():.2f}
-                   \n Total time: {end-start:.2f} s
-                   \n=================================''')
-    #print('============ SUMMARY ============')
-    #print('\n Dimension of the integral = {0}'.format(dim))
-    #print('\n Number of steps required = {0}'.format(steps))
-    #print('\n Number of live points = {0}'.format(args.num_live_points))
-    #print('\n Evidence = {0:.5f}'.format(evidence))
-    #print(f'\n Proposal chosen: {prop}')
-    #print('\n Last area value = {0:.5f}'.format(area_plot[-1]))
-    #if args.proposal == 0:
-        #print('\n Manual shrinkage of the prior domain = {0:.2f}'.format(shrink))
-    #if args.proposal == 1:
-        #print('\n Manual shrinkage of the proposal std = {0:.2f}'.format(shrink))
-    #print('\n Accepted and rejected points: {0}, {1}'.format(acc, rej))
-    #print('\n Mass prior sum = {0:.2f} '.format(np.exp(prior_mass).sum()))
-    #t = end-start
-    #print('\n Total time: {0:.2f} s'.format(t))
-    #print('=================================')
-    plt.show()
+            prop = 'Normal'
+            area_plot, evidence_plot, likelihood_worst, prior_mass, evidence, t_resample, steps, shrink = nested_samplig(live_points, d, resample_function=normal_proposal)
+
+        if args.plot:
+
+            fig, ax1 = plt.subplots()
+            ax1.plot(area_plot, color = 'k', label = 'Li*wi')
+            ax2 = ax1.twinx()
+            ax2.plot(evidence_plot, color = 'r', label = 'Z')
+            ax1.set_xlabel('Iterations')
+            plt.grid()
+            fig.legend()
+            plt.savefig(f'results/images/{args.proposal}/area_dynamics_{d}.png')
+
+            plt.figure()
+            plt.scatter(prior_mass[:len(likelihood_worst)], likelihood_worst, s=0.1, c='k')
+            plt.xlabel('log(X)')
+            plt.ylabel('Worst Likelihood')
+            plt.savefig(f'results/images/{args.proposal}/worst_likelihood_{d}.png')
+
+            plt.figure()
+            plt.scatter(np.arange(len(t_resample)),t_resample, s=0.5, c='k')
+            plt.yscale('log')
+            plt.xlabel('Iterations')
+            plt.ylabel('Resampling time')
+            plt.title('Time for resampling')
+            plt.savefig(f'results/images/{args.proposal}/resampling_time_{d}.png')
+
+        end = time.time()
+        with open(f'results/summaries/{args.proposal}/Summary_{d}.txt', 'w', encoding='utf-8') as file:
+            file.write(f'''============ SUMMARY ============
+                    \n Dimension of the integral = {d}
+                    \n Number of steps required = {steps}
+                    \n Evidence = {evidence:.2f}
+                    \n Proposal chosen: {prop}
+                    \n Last area value = {area_plot[-1]:.2f}''')
+            if args.proposal == 0:
+                file.write(f'\n Manual shrinkage of the prior domain = {shrink:.2f}')
+            if args.proposal == 1:
+                file.write(f'\n Manual shrinkage of the proposal std = {shrink:.2f}')
+            file.write(f'''\n Accepted and rejected points: {acc}, {rej}
+                    \n Mass prior sum = {np.exp(prior_mass).sum():.2f}
+                    \n Total time: {end-start:.2f} s
+                    \n=================================''')
 
 

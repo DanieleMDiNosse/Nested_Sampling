@@ -1,19 +1,19 @@
 ============ SUMMARY ============
                     
- Dimension of the integral = 1
+ Dimension of the integral = 2
                     
- Number of steps required = 7001
+ Number of steps required = 9527
                     
- Evidence = 1.03
+ Evidence = 0.93
                     
  Proposal chosen: Uniform
                     
  Last area value = 0.00
- Manual shrinkage of the prior domain = 0.69
- Accepted and rejected points: 7002, 438062
+ Manual shrinkage of the prior domain = 0.94
+ Accepted and rejected points: 9528, 413549
                     
  Mass prior sum = 1.00
                     
- Total time: 13.93 s
+ Total time: 29.61 s
                     
 =================================
