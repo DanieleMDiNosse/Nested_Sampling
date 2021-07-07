@@ -112,6 +112,8 @@ def normal_proposal(x, dim, logLmin, survivor, shrink):
     '''
     start = time.time()
     counter = 0
+    accepted = 0
+    rejected = 0
     while True:
         counter += 1
         zeros = np.zeros(dim)
@@ -130,11 +132,14 @@ def normal_proposal(x, dim, logLmin, survivor, shrink):
         if diff > acc_num: # acceptance MH rule
             new_line[dim+1] = log_likelihood(new_line[:dim], dim, init=False)[0]
             new_log_likelihood = new_line[dim+1]
+            if new_log_likelihood < logLmin:
+                rejected += 1
             if new_log_likelihood > logLmin:
+                accepted += 1
                 end = time.time()
                 t = end-start
-                print('Time for resampling: {0:.2f} s'.format(t))
-                return new_line, t
+                #print('Time for resampling: {0:.2f} s'.format(t))
+                return new_line, t, accepted, rejected
 
 def nested_samplig(live_points, dim, resample_function=uniform_proposal):
     '''Nested Sampling by Skilling (2006)
@@ -189,7 +194,7 @@ def nested_samplig(live_points, dim, resample_function=uniform_proposal):
         T.append(t)
         live_points[Lw_idx] = new_sample
         logwidth -= 1.0/N
-        if dim*np.log(2*boundary) - 0.5*dim*np.log(np.pi) - steps/N < f + logZ:
+        if dim*np.log(2*boundary) - 0.5*dim*np.log(2*np.pi) - steps/N < f + logZ:
             break
         steps += 1
     return np.exp(Area), np.exp(Zlog), np.exp(logL_worst), prior_mass, np.exp(logZ), T, steps, shrink, accepted, rejected
@@ -220,14 +225,14 @@ if __name__ == "__main__":
     n = args.num_live_points
     dim = args.dim
     boundary = args.boundary
-    for d in tqdm(range(1,dim+1)):
+    for d in tqdm(range(20,dim+1)):
         live_points = np.zeros((n, d+2), dtype=np.float64) # the first dim columns for each row represents my multidimensional array of parameters
         if args.proposal == 0:
             prop = 'Uniform'
             area_plot, evidence_plot, likelihood_worst, prior_mass, evidence, t_resample, steps, shrink, acc, rej = nested_samplig(live_points, d, resample_function=uniform_proposal)
         if args.proposal == 1:
             prop = 'Normal'
-            area_plot, evidence_plot, likelihood_worst, prior_mass, evidence, t_resample, steps, shrink = nested_samplig(live_points, d, resample_function=normal_proposal)
+            area_plot, evidence_plot, likelihood_worst, prior_mass, evidence, t_resample, steps, shrink, acc, rej = nested_samplig(live_points, d, resample_function=normal_proposal)
 
         if args.plot:
 
@@ -254,12 +259,15 @@ if __name__ == "__main__":
             plt.title('Time for resampling')
             plt.savefig(f'results/images/{args.proposal}/resampling_time_{d}.png')
 
+            plt.close('all')
+
         end = time.time()
         with open(f'results/summaries/{args.proposal}/Summary_{d}.txt', 'w', encoding='utf-8') as file:
             file.write(f'''============ SUMMARY ============
                     \n Dimension of the integral = {d}
                     \n Number of steps required = {steps}
                     \n Evidence = {evidence:.2f}
+                    \n Maximum of the likelihood = {(2*boundary/np.sqrt(2*np.pi))**d:.2f}
                     \n Proposal chosen: {prop}
                     \n Last area value = {area_plot[-1]:.2f}''')
             if args.proposal == 0:
