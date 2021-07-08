@@ -33,10 +33,10 @@ def log_likelihood(x, dim, init, boundary=10):
     if init:
         for v in x:
             exp = v**2
-            L = np.log(((2*boundary) / np.sqrt(2*np.pi))**dim * np.exp(-0.5*exp.sum()))
+            L = dim*np.log(2*boundary) - 0.5*dim*np.log(2*np.pi) - 0.5*exp.sum()
             likelihood.append(L)
     else:
-        L = np.log(((2*boundary) / np.sqrt(2*np.pi))**dim * np.exp(-0.5*x.T.dot(x)))
+        L = dim*np.log(2*boundary) - 0.5*dim*np.log(2*np.pi) - 0.5*x.T.dot(x)
         likelihood.append(L)
 
     return likelihood
@@ -65,7 +65,7 @@ def log_prior(x, dim, boundary=10):
         if np.sqrt((v*v).sum()) > mod:
             prior.append(-np.inf)
         else:
-            prior.append(np.log(1 / (2*boundary)**dim))
+            prior.append(-dim*np.log(2*boundary))
 
     return prior
 
@@ -85,27 +85,30 @@ def uniform_proposal(x, dim, logLmin, survivor):
     counter = 0
     shrink = 0
     while True:
-        if counter > 150:
-            shrink += 0.01
+        if counter > 200:
+            shrink += 0.001
+            if shrink > 0.99:
+                shrink = 0.98
+            counter = 0
+
         new_line = np.zeros(dim+2, dtype=np.float64)
         new_line[:dim] = np.random.uniform(-10 + 10*shrink, 10 - 10*shrink, size=dim)
         new_log_prior = log_prior(new_line[:dim], dim)
         new_line[dim] = new_log_prior[0]
+
         # acceptance MH rule
         if (new_log_prior - x[:dim]).all() > np.log(np.random.uniform(0, 1)):
             new_line[dim+1] = log_likelihood(new_line[:dim], dim, init=False)[0]
-            new_log_likelihood = new_line[dim+1]
-            if new_log_likelihood < logLmin:
+
+            if new_line[dim+1] < logLmin:
                 rejected += 1
                 counter += 1
-            if new_log_likelihood > logLmin:
+            if new_line[dim+1] > logLmin:
                 accepted += 1
                 end = time.time()
-                t = end-start
-                #print('Time for resampling: {0:.2f} s'.format(t))
-                return new_line, t, accepted, rejected
+                return new_line, (end-start), accepted, rejected
 
-def normal_proposal(x, dim, logLmin, survivor, shrink):
+def normal_proposal(x, dim, logLmin, survivor):
     ''' Sample a new object from the prior subject to the constrain L(x_new) > Lworst_old
 
     Parameters
@@ -119,37 +122,35 @@ def normal_proposal(x, dim, logLmin, survivor, shrink):
     counter = 0
     accepted = 0
     rejected = 0
-    auto_corr = []
+    shrink = 0
     while True:
-        counter += 1
+        if counter > 200:
+            shrink += 0.001
+            if shrink > 0.99:
+                shrink = 0.98
+            counter = 0
         zeros = np.zeros(dim)
-        diag = np.diag(np.ones(dim)) - np.diag(np.zeros(dim) + 0.9)
+        diag = np.diag(np.ones(dim)) - np.diag(np.zeros(dim) + shrink)
         new_line = np.zeros(dim+2, dtype=np.float64)
-        for i in range(75):
-            step = np.random.multivariate_normal(zeros, diag)
-            new_line[:dim] = survivor + step
-            #auto_corr.append(new_line[:dim][0])
-            for i in  range(len(new_line[:dim])):
-                while np.abs(new_line[:dim][i]) > 10.:
-                    new_line[:dim][i] = survivor[i] + np.random.normal(0, 1 - shrink)
-            new_log_prior = log_prior(new_line[:dim], dim)
-            new_line[dim] = new_log_prior[0] # I choose the first since the priors are all the same
-            diff = new_log_prior[0] - x[dim]
-            acc_num = np.log(np.random.uniform(0,1))
-            if diff > acc_num: # acceptance MH rule
-                new_line[dim+1] = log_likelihood(new_line[:dim], dim, init=False)[0]
-                new_log_likelihood = new_line[dim+1]
-                if new_log_likelihood < logLmin:
-                    rejected += 1
-                if new_log_likelihood > logLmin:
-                    accepted += 1
-                    survivor = new_line[:dim]
-        end = time.time()
-        t = end-start
-                    #print('Time for resampling: {0:.2f} s'.format(t))
-        #plt.acorr(auto_corr, maxlags = 99)
-        #plt.show()
-        return new_line, t, accepted, rejected
+        new_line[:dim] = survivor + np.random.multivariate_normal(zeros, diag)
+
+        for i in  range(len(new_line[:dim])):
+            while np.abs(new_line[:dim][i]) > 10.:
+                new_line[:dim][i] = survivor[i] + np.random.normal(0, 1 - shrink)
+
+        new_log_prior = log_prior(new_line[:dim], dim)
+        new_line[dim] = new_log_prior[0] # I choose the first since the priors are all the same
+
+        if new_log_prior[0] - x[dim] > np.log(np.random.uniform(0,1)): # acceptance MH rule
+            new_line[dim+1] = log_likelihood(new_line[:dim], dim, init=False)[0]
+
+            if new_line[dim+1] < logLmin:
+                rejected += 1
+                counter += 1
+            if new_line[dim+1] > logLmin:
+                accepted += 1
+                end = time.time()
+                return new_line, (end-start), accepted, rejected
 
 def nested_samplig(live_points, dim, resample_function=uniform_proposal, verbose=False):
     '''Nested Sampling by Skilling (2006)
@@ -157,7 +158,7 @@ def nested_samplig(live_points, dim, resample_function=uniform_proposal, verbose
 
     N = live_points.shape[0]
     f = np.log(0.01)
-    Area = []; Zlog = []; logL_worst = []; T = []; A = []; # lists for plots
+    Area = []; Zlog = []; logL_worst = []; T = []; A = []; prior_mass = [] # lists for plots
 
     logZ = -np.inf
     parameters = np.random.uniform(-10, 10, size=(N, dim))
@@ -165,20 +166,12 @@ def nested_samplig(live_points, dim, resample_function=uniform_proposal, verbose
     live_points[:, dim] = log_prior(parameters, dim)
     live_points[:, dim+1] = log_likelihood(parameters, dim, init=True)
     logwidth = np.log(1.0 - np.exp(-1.0/N))
-    prior_mass = []
+    max_log_l = dim*np.log(2*boundary) - 0.5*dim*np.log(2*np.pi)
+
     steps = 0
-    c = 0
-    shrink = 0
     accepted = 0
     rejected = 0
     while True:
-        if c > 100:
-            c = 0
-            shrink += 0.01
-            if shrink > 0.99:
-                shrink = 0.98
-        c +=1
-        #prior_mass += np.exp(logwidth)
         prior_mass.append(logwidth)
         Lw_idx = np.argmin(live_points[:, dim+1])
         logLw = live_points[Lw_idx, dim+1]
@@ -194,8 +187,7 @@ def nested_samplig(live_points, dim, resample_function=uniform_proposal, verbose
 
         logZ = logZnew
         if verbose:
-            print("dim = {0} it:{1} log(Lw) = {2:.5f} --> log(w) = {3:.5f} log(Z) = {4:.5f}".format(dim, steps,
-                                                                            logLw, logwidth, logZ))
+            print("dim = {0} it:{1} log(Lw) = {2:.2f} term_cond = {3:.2f} log(w) = {4:.2f} log(Z) = {5:.2f}".format(dim, steps, logLw, (max_log_l - steps/N - f - logZ),  logwidth, logZ))
 
         new_sample, t, acc, rej = resample_function(live_points[Lw_idx], dim, logLw, survivor)
         accepted += acc
@@ -205,10 +197,10 @@ def nested_samplig(live_points, dim, resample_function=uniform_proposal, verbose
         T.append(t)
         live_points[Lw_idx] = new_sample
         logwidth -= 1.0/N
-        if dim*np.log(2*boundary) - 0.5*dim*np.log(2*np.pi) - steps/N < f + logZ:
+        if max_log_l - steps/N < f + logZ:
             break
         steps += 1
-    return np.exp(Area), np.exp(Zlog), np.exp(logL_worst), prior_mass, np.exp(logZ), T, steps, shrink, accepted, rejected
+    return np.exp(Area), np.exp(Zlog), np.exp(logL_worst), prior_mass, np.exp(logZ), T, steps, accepted, rejected
 
 if __name__ == "__main__":
 
@@ -241,10 +233,10 @@ if __name__ == "__main__":
         live_points = np.zeros((n, d+2), dtype=np.float64) # the first dim columns for each row represents my multidimensional array of parameters
         if args.proposal == 0:
             prop = 'Uniform'
-            area_plot, evidence_plot, likelihood_worst, prior_mass, evidence, t_resample, steps, shrink, acc, rej = nested_samplig(live_points, d, resample_function=uniform_proposal, verbose=args.verbose)
+            area_plot, evidence_plot, likelihood_worst, prior_mass, evidence, t_resample, steps, acc, rej = nested_samplig(live_points, d, resample_function=uniform_proposal, verbose=args.verbose)
         if args.proposal == 1:
             prop = 'Normal'
-            area_plot, evidence_plot, likelihood_worst, prior_mass, evidence, t_resample, steps, shrink, acc, rej = nested_samplig(live_points, d, resample_function=normal_proposal, verbose=args.verbose)
+            area_plot, evidence_plot, likelihood_worst, prior_mass, evidence, t_resample, steps, acc, rej = nested_samplig(live_points, d, resample_function=normal_proposal, verbose=args.verbose)
 
         if args.plot:
 
@@ -283,21 +275,11 @@ if __name__ == "__main__":
                     \n Proposal chosen: {prop}
                     \n Last area value = {area_plot[-1]:.2f}
                     \n Last worst Likelihood = {likelihood_worst[-1]}''')
-            if args.proposal == 0:
-                file.write(f'\n Manual shrinkage of the prior domain = {shrink:.2f}')
-            if args.proposal == 1:
-                file.write(f'\n Manual shrinkage of the proposal std = {shrink:.2f}')
+            #if args.proposal == 0:
+                #file.write(f'\n Manual shrinkage of the prior domain = {shrink:.2f}')
+            #if args.proposal == 1:
+                #file.write(f'\n Manual shrinkage of the proposal std = {shrink:.2f}')
             file.write(f'''\n Accepted and rejected points: {acc}, {rej}
                     \n Mass prior sum = {np.exp(prior_mass).sum():.2f}
                     \n Total time: {end-start:.2f} s
                     \n=================================''')
-
-# LA SITUAZIONE ATTUALE È:
-# - CON L'UNIFORME Z MI SCHIZZA AD ALTE DIMENSIONI
-# - CON LA GAUSSIANA MI VA A ZERO AD ALTE DIMENSIONI
-# SE L'UNIFORME LA CENTRO IN SURVIVOR, PURE MI VA A ZERO PER ALTE DIMENSIONI
-# SE AGGIORNO NEW_LINE[:DIM] = SURVIVOR QUANDO IL PUNTO VIENE RIFIUTATO, I TEMPI DIVENTANO
-# INFINITI
-
-# LA SITUAZIONE MIGLIORE PER ORA E' FAR RUNNARE IL TUTTO COME STA. ALMENO NON CI METTE UNA VITA.
-
