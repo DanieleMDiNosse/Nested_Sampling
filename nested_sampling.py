@@ -69,7 +69,7 @@ def log_prior(x, dim, boundary=10):
 
     return prior
 
-def uniform_proposal(x, dim, logLmin, survivor, shrink):
+def uniform_proposal(x, dim, logLmin, survivor):
     ''' Sample a new object from the prior subject to the constrain L(x_new) > Lworst_old
 
     Parameters
@@ -82,10 +82,12 @@ def uniform_proposal(x, dim, logLmin, survivor, shrink):
     start = time.time()
     accepted = 0
     rejected = 0
+    counter = 0
+    shrink = 0
     while True:
+        if counter > 150:
+            shrink += 0.01
         new_line = np.zeros(dim+2, dtype=np.float64)
-        #step = np.random.uniform(-1 + shrink, 1 - shrink)
-        #new_line[:dim] = survivor + step
         new_line[:dim] = np.random.uniform(-10 + 10*shrink, 10 - 10*shrink, size=dim)
         new_log_prior = log_prior(new_line[:dim], dim)
         new_line[dim] = new_log_prior[0]
@@ -95,6 +97,7 @@ def uniform_proposal(x, dim, logLmin, survivor, shrink):
             new_log_likelihood = new_line[dim+1]
             if new_log_likelihood < logLmin:
                 rejected += 1
+                counter += 1
             if new_log_likelihood > logLmin:
                 accepted += 1
                 end = time.time()
@@ -116,33 +119,37 @@ def normal_proposal(x, dim, logLmin, survivor, shrink):
     counter = 0
     accepted = 0
     rejected = 0
+    auto_corr = []
     while True:
         counter += 1
         zeros = np.zeros(dim)
-        diag = np.diag(np.ones(dim)) - np.diag(np.zeros(dim) + shrink)
+        diag = np.diag(np.ones(dim)) - np.diag(np.zeros(dim) + 0.9)
         new_line = np.zeros(dim+2, dtype=np.float64)
-        step = np.random.multivariate_normal(zeros, diag)
-        new_line[:dim] = survivor + step
-        for i in  range(len(new_line[:dim])):
-            while np.abs(new_line[:dim][i]) > 10.:
-                step = np.random.multivariate_normal(zeros, diag)
-                new_line[:dim] = survivor + step
-        new_log_prior = log_prior(new_line[:dim], dim)
-        new_line[dim] = new_log_prior[0] # I choose the first since the priors are all the same
-        diff = new_log_prior[0] - x[dim]
-        acc_num = np.log(np.random.uniform(0,1))
-        if diff > acc_num: # acceptance MH rule
-            new_line[dim+1] = log_likelihood(new_line[:dim], dim, init=False)[0]
-            new_log_likelihood = new_line[dim+1]
-            if new_log_likelihood < logLmin:
-                rejected += 1
-                #survivor = new_line[:dim]
-            if new_log_likelihood > logLmin:
-                accepted += 1
-                end = time.time()
-                t = end-start
-                #print('Time for resampling: {0:.2f} s'.format(t))
-                return new_line, t, accepted, rejected
+        for i in range(75):
+            step = np.random.multivariate_normal(zeros, diag)
+            new_line[:dim] = survivor + step
+            #auto_corr.append(new_line[:dim][0])
+            for i in  range(len(new_line[:dim])):
+                while np.abs(new_line[:dim][i]) > 10.:
+                    new_line[:dim][i] = survivor[i] + np.random.normal(0, 1 - shrink)
+            new_log_prior = log_prior(new_line[:dim], dim)
+            new_line[dim] = new_log_prior[0] # I choose the first since the priors are all the same
+            diff = new_log_prior[0] - x[dim]
+            acc_num = np.log(np.random.uniform(0,1))
+            if diff > acc_num: # acceptance MH rule
+                new_line[dim+1] = log_likelihood(new_line[:dim], dim, init=False)[0]
+                new_log_likelihood = new_line[dim+1]
+                if new_log_likelihood < logLmin:
+                    rejected += 1
+                if new_log_likelihood > logLmin:
+                    accepted += 1
+                    survivor = new_line[:dim]
+        end = time.time()
+        t = end-start
+                    #print('Time for resampling: {0:.2f} s'.format(t))
+        #plt.acorr(auto_corr, maxlags = 99)
+        #plt.show()
+        return new_line, t, accepted, rejected
 
 def nested_samplig(live_points, dim, resample_function=uniform_proposal, verbose=False):
     '''Nested Sampling by Skilling (2006)
@@ -190,7 +197,7 @@ def nested_samplig(live_points, dim, resample_function=uniform_proposal, verbose
             print("dim = {0} it:{1} log(Lw) = {2:.5f} --> log(w) = {3:.5f} log(Z) = {4:.5f}".format(dim, steps,
                                                                             logLw, logwidth, logZ))
 
-        new_sample, t, acc, rej = resample_function(live_points[Lw_idx], dim, logLw, survivor, shrink)
+        new_sample, t, acc, rej = resample_function(live_points[Lw_idx], dim, logLw, survivor)
         accepted += acc
         rejected += rej
         survivor = new_sample[:dim]
@@ -230,7 +237,7 @@ if __name__ == "__main__":
     n = args.num_live_points
     dim = args.dim
     boundary = args.boundary
-    for d in tqdm(range(1,dim+1)):
+    for d in tqdm(range(dim,dim+1)):
         live_points = np.zeros((n, d+2), dtype=np.float64) # the first dim columns for each row represents my multidimensional array of parameters
         if args.proposal == 0:
             prop = 'Uniform'
