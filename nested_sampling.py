@@ -179,7 +179,7 @@ def nested_samplig(live_points, dim, resample_function=uniform_proposal, verbose
 
         survivors = np.delete(live_points, Lw_idx, axis=0)
         k = survivors.shape[0]
-        survivor = live_points[int(np.random.uniform(k)),:dim]
+        survivor = live_points[Lw_idx,:dim]
 
         logL_worst.append(logLw)
         Area.append(logwidth+logLw)
@@ -229,7 +229,7 @@ if __name__ == "__main__":
     n = args.num_live_points
     dim = args.dim
     boundary = args.boundary
-    for d in tqdm(range(1,dim+1)):
+    for d in tqdm(range(dim,dim+1)):
         live_points = np.zeros((n, d+2), dtype=np.float64) # the first dim columns for each row represents my multidimensional array of parameters
         if args.proposal == 0:
             prop = 'Uniform'
