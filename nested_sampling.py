@@ -130,7 +130,7 @@ def normal_proposal(x, dim, logLmin, survivor):
                 shrink = 0.98
             counter = 0
         zeros = np.zeros(dim)
-        diag = np.diag(np.ones(dim)) - np.diag(np.zeros(dim) + shrink)
+        diag = np.diag(np.ones(dim))  + np.diag(np.ones(dim) - shrink)
         new_line = np.zeros(dim+2, dtype=np.float64)
         new_line[:dim] = survivor + np.random.multivariate_normal(zeros, diag)
 
@@ -252,8 +252,9 @@ if __name__ == "__main__":
             plt.figure()
             plt.scatter(prior_mass[:len(likelihood_worst)], likelihood_worst, s=0.1, c='k')
             plt.xlabel('log(X)')
-            plt.ylabel('Worst Likelihood')
+            plt.ylabel('Worst L')
             plt.savefig(f'results/images/{args.proposal}/worst_likelihood_{d}.png')
+            plt.fill_between(prior_mass[:len(likelihood_worst)],likelihood_worst, color='k', alpha=0.3)
 
             plt.figure()
             plt.scatter(np.arange(len(t_resample)),t_resample, s=0.5, c='k')
