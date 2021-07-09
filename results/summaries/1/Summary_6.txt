@@ -1,22 +1,22 @@
 ============ SUMMARY ============
                     
- Dimension of the integral = 1
+ Dimension of the integral = 6
                     
- Number of steps required = 6919
+ Number of steps required = 16835
                     
- Evidence = 0.79
+ Evidence = 1.26
                     
- Maximum of the likelihood = 7.98
+ Maximum of the likelihood = 258012.28
                     
  Proposal chosen: Normal
                     
  Last area value = 0.00
                     
- Last worst Likelihood = 7.97820111997135
- Accepted and rejected points: 6919, 311593
+ Last worst Likelihood = 187452.8806751501
+ Accepted and rejected points: 16835, 704502
                     
  Mass prior sum = 1.00
                     
- Total time: 8.76 s
+ Total time: 216.90 s
                     
 =================================
