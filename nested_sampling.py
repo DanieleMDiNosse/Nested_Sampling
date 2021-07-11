@@ -115,44 +115,42 @@ def normal_proposal(x, dim, logLmin, survivor, std):
         Worst likelihood, i.e. The third element of x
     '''
     start = time.time()
-    counter = 0
     accepted = 0
     rejected = 0
-    shrink = 0
     n = 0
     new_line = np.zeros(dim+2, dtype=np.float64)
     while True:
+        n += 1
         for i in range(len(new_line[:dim])):
             new_line[:dim][i] = np.random.normal(survivor[i], std)
             while np.abs(new_line[:dim][i]) > 10.:
                 new_line[:dim][i] = survivor[i] + np.random.normal(0, std)
-        #for i in  range(len(new_line[:dim])):
-            #while np.abs(new_line[:dim][i]) > 10.:
-                #new_line[:dim][i] = survivor[i] + np.random.normal(0, std)
 
         new_log_prior = log_prior(new_line[:dim], dim)
         new_line[dim] = new_log_prior[0] # I choose the first since the priors are all the same
 
-        if new_log_prior[0] - x[dim] > np.log(np.random.uniform(0,1)): # acceptance MH rule
-            new_line[dim+1] = log_likelihood(new_line[:dim], dim, init=False)[0]
-
-            if new_line[dim+1] < logLmin:
-                rejected += 1
-                counter += 1
-            if new_line[dim+1] > logLmin:
-                n += 1
-                accepted += 1
-                survivor[:dim] = new_line[:dim]
-                if n == dim:
-                    end = time.time()
-                    return new_line, (end-start), accepted, rejected
+        #if new_log_prior[0] - x[dim] > np.log(np.random.uniform(0,1)): # acceptance MH rule
+        new_line[dim+1] = log_likelihood(new_line[:dim], dim, init=False)[0]
+        if new_line[dim+1] < logLmin:
+            rejected += 1
+        if new_line[dim+1] > logLmin:
+            #n += 1
+            accepted += 1
+            survivor[:dim] = new_line[:dim]
+            if n > 20:
+                end = time.time()
+                break
+        if accepted != 0 and rejected != 0:
+            if accepted > rejected: std *= np.exp(1.0/accepted)
+            if accepted < rejected: std /= np.exp(1.0/rejected)
+    return new_line, (end-start), accepted, rejected
 
 def nested_samplig(live_points, dim, resample_function=uniform_proposal, verbose=False):
     '''Nested Sampling by Skilling (2006)
     '''
 
     N = live_points.shape[0]
-    f = np.log(0.01)
+    f = np.log(0.05)
     Area = []; Zlog = []; logL_worst = []; T = []; prior_mass = [] # lists for plots
 
     logZ = -np.inf
@@ -164,14 +162,14 @@ def nested_samplig(live_points, dim, resample_function=uniform_proposal, verbose
     max_log_l = dim*np.log(2*boundary) - 0.5*dim*np.log(2*np.pi)
 
     steps = 0
-    multiplier_steps = 0; multiplier = 6
+    multiplier_steps = 0; multiplier = 5
     accepted = 0
     rejected = 0
     while True:
         steps += 1
         multiplier_steps += 1
-        if multiplier_steps > 170:
-            multiplier -= 0.1
+        if multiplier_steps > 100:
+            multiplier -= 0.03
             multiplier_steps = 0
         if multiplier < 0.1:
             multiplier = 0.1
@@ -181,7 +179,7 @@ def nested_samplig(live_points, dim, resample_function=uniform_proposal, verbose
         logZnew = np.logaddexp(logZ, logwidth+logLw)
 
         survivors = np.delete(live_points, Lw_idx, axis=0)
-        std = multiplier * np.std(survivors[:dim])
+        std = np.std(survivors[:dim])*multiplier
         k = survivors.shape[0]
         survivor = live_points[Lw_idx,:dim]
 

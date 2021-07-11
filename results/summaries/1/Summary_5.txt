@@ -2,9 +2,9 @@
                     
  Dimension of the integral = 5
                     
- Number of steps required = 14941
+ Number of steps required = 15470
                     
- Evidence = 1.05
+ Evidence = 0.62
                     
  Maximum of the likelihood = 32337.04
                     
@@ -12,11 +12,11 @@
                     
  Last area value = 0.00
                     
- Last worst Likelihood = 26234.975593648967
- Accepted and rejected points: 14941, 575610
+ Last worst Likelihood = 27127.819265770275
+ Accepted and rejected points: 309400, 223211
                     
  Mass prior sum = 1.00
                     
- Total time: 49.64 s
+ Total time: 36.53 s
                     
 =================================
