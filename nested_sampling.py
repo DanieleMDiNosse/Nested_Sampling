@@ -51,10 +51,6 @@ def log_prior(x, dim, boundary=10):
     dim : int
         Dimension of the parameter space.
 
-    init: bool
-        You can choose to use the funcion to initialize the likelihood of the live points (True) or
-        to generate just a new likelihood value (False)
-
     boundary : init, optional
         Boundary of the parameter space.
     '''
@@ -123,23 +119,16 @@ def normal_proposal(x, dim, logLmin, survivor, std):
     accepted = 0
     rejected = 0
     shrink = 0
+    n = 0
+    new_line = np.zeros(dim+2, dtype=np.float64)
     while True:
-        #if counter > 200:
-            #shrink += 0.001
-            #if shrink > 0.99:
-                #shrink = 0.98
-            #counter = 0
-        #zeros = np.zeros(dim)
-        #diag = np.diag(np.ones(dim))  + np.diag(np.ones(dim) - shrink)
-        new_line = np.zeros(dim+2, dtype=np.float64)
         for i in range(len(new_line[:dim])):
             new_line[:dim][i] = np.random.normal(survivor[i], std)
-
-        #new_line[:dim] = survivor + np.random.multivariate_normal(zeros, diag)
-
-        for i in  range(len(new_line[:dim])):
             while np.abs(new_line[:dim][i]) > 10.:
                 new_line[:dim][i] = survivor[i] + np.random.normal(0, std)
+        #for i in  range(len(new_line[:dim])):
+            #while np.abs(new_line[:dim][i]) > 10.:
+                #new_line[:dim][i] = survivor[i] + np.random.normal(0, std)
 
         new_log_prior = log_prior(new_line[:dim], dim)
         new_line[dim] = new_log_prior[0] # I choose the first since the priors are all the same
@@ -151,9 +140,12 @@ def normal_proposal(x, dim, logLmin, survivor, std):
                 rejected += 1
                 counter += 1
             if new_line[dim+1] > logLmin:
+                n += 1
                 accepted += 1
-                end = time.time()
-                return new_line, (end-start), accepted, rejected
+                new_line[:dim] = survivor[:dim]
+                if n == dim:
+                    end = time.time()
+                    return new_line, (end-start), accepted, rejected
 
 def nested_samplig(live_points, dim, resample_function=uniform_proposal, verbose=False):
     '''Nested Sampling by Skilling (2006)
@@ -161,7 +153,7 @@ def nested_samplig(live_points, dim, resample_function=uniform_proposal, verbose
 
     N = live_points.shape[0]
     f = np.log(0.01)
-    Area = []; Zlog = []; logL_worst = []; T = []; A = []; prior_mass = [] # lists for plots
+    Area = []; Zlog = []; logL_worst = []; T = []; prior_mass = [] # lists for plots
 
     logZ = -np.inf
     parameters = np.random.uniform(-10, 10, size=(N, dim))
@@ -181,8 +173,8 @@ def nested_samplig(live_points, dim, resample_function=uniform_proposal, verbose
         if multiplier_steps > 170:
             multiplier -= 0.10
             multiplier_steps = 0
-            if multiplier < 0.1:
-                multiplier = 0.1
+        if multiplier < 0.1:
+            multiplier = 0.1
         prior_mass.append(logwidth)
         Lw_idx = np.argmin(live_points[:, dim+1])
         logLw = live_points[Lw_idx, dim+1]
@@ -190,10 +182,7 @@ def nested_samplig(live_points, dim, resample_function=uniform_proposal, verbose
 
         survivors = np.delete(live_points, Lw_idx, axis=0)
         std = multiplier * np.std(survivors[:dim])
-        #print('OOOOOOOOOOOOOOOOOOO', std)
-        #std = multiplier * np.abs(np.mean(survivors[:dim], axis = 0))
-        #print(steps, std)
-        #k = survivors.shape[0]
+        k = survivors.shape[0]
         survivor = live_points[Lw_idx,:dim]
 
         logL_worst.append(logLw)
@@ -208,12 +197,15 @@ def nested_samplig(live_points, dim, resample_function=uniform_proposal, verbose
         accepted += acc
         rejected += rej
         survivor = new_sample[:dim]
-        #A.append(a)
         T.append(t)
         live_points[Lw_idx] = new_sample
         logwidth -= 1.0/N
         if max_log_l - steps/N < f + logZ:
             break
+
+    final_term = np.log(np.exp(live_points[:,dim+1]).sum()*np.exp(-steps/N)/N)
+    logZ = np.logaddexp(logZ, final_term)
+
     return np.exp(Area), np.exp(Zlog), np.exp(logL_worst), prior_mass, np.exp(logZ), T, steps, accepted, rejected
 
 if __name__ == "__main__":
@@ -243,7 +235,7 @@ if __name__ == "__main__":
     n = args.num_live_points
     dim = args.dim
     boundary = args.boundary
-    for d in tqdm(range(1,dim+1)):
+    for d in tqdm(range(dim,dim+1)):
         live_points = np.zeros((n, d+2), dtype=np.float64) # the first dim columns for each row represents my multidimensional array of parameters
         if args.proposal == 0:
             prop = 'Uniform'
@@ -277,7 +269,7 @@ if __name__ == "__main__":
             plt.ylabel('Resampling time')
             plt.title('Time for resampling')
             plt.savefig(f'results/images/{args.proposal}/resampling_time_{d}.png')
-
+            plt.show()
             plt.close('all')
 
         end = time.time()
