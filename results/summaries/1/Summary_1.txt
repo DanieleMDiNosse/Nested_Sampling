@@ -12,11 +12,11 @@
                     
  Last area value = 0.00
                     
- Last worst Likelihood = 7.97833647966548
- Accepted and rejected points: 6671, 1148748
+ Last worst Likelihood = 7.978129476207078
+ Accepted and rejected points: 6671, 501929
                     
  Mass prior sum = 1.00
                     
- Total time: 32.82 s
+ Total time: 19.01 s
                     
 =================================

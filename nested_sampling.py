@@ -142,7 +142,7 @@ def normal_proposal(x, dim, logLmin, survivor, std):
             if new_line[dim+1] > logLmin:
                 n += 1
                 accepted += 1
-                new_line[:dim] = survivor[:dim]
+                survivor[:dim] = new_line[:dim]
                 if n == dim:
                     end = time.time()
                     return new_line, (end-start), accepted, rejected
@@ -164,14 +164,14 @@ def nested_samplig(live_points, dim, resample_function=uniform_proposal, verbose
     max_log_l = dim*np.log(2*boundary) - 0.5*dim*np.log(2*np.pi)
 
     steps = 0
-    multiplier_steps = 0; multiplier = 5
+    multiplier_steps = 0; multiplier = 6
     accepted = 0
     rejected = 0
     while True:
         steps += 1
         multiplier_steps += 1
         if multiplier_steps > 170:
-            multiplier -= 0.10
+            multiplier -= 0.1
             multiplier_steps = 0
         if multiplier < 0.1:
             multiplier = 0.1
@@ -282,10 +282,6 @@ if __name__ == "__main__":
                     \n Proposal chosen: {prop}
                     \n Last area value = {area_plot[-1]:.2f}
                     \n Last worst Likelihood = {likelihood_worst[-1]}''')
-            #if args.proposal == 0:
-                #file.write(f'\n Manual shrinkage of the prior domain = {shrink:.2f}')
-            #if args.proposal == 1:
-                #file.write(f'\n Manual shrinkage of the proposal std = {shrink:.2f}')
             file.write(f'''\n Accepted and rejected points: {acc}, {rej}
                     \n Mass prior sum = {np.exp(prior_mass).sum():.2f}
                     \n Total time: {end-start:.2f} s
