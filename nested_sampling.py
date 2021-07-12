@@ -2,11 +2,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import argparse
 import logging
+import itertools as it
 from tqdm import tqdm
+from scipy.stats import anglit
 import time
 
 
-def log_likelihood(x, dim, init, boundary=10):
+def log_likelihood(x, dim, init, boundary=5):
     ''' Return the logarithm of a N-dimensional gaussian likelihood. It is set in such a way that the
     integral of the product with the prior over the parameter space is 1.
 
@@ -41,7 +43,7 @@ def log_likelihood(x, dim, init, boundary=10):
 
     return likelihood
 
-def log_prior(x, dim, boundary=10):
+def log_prior(x, dim, boundary=5):
     '''Return a uniform prior for each value of the N-dimension vector x. It is set in such a way that the
     integral of the product with the likelihood over the parameter space is 1.
 
@@ -78,33 +80,32 @@ def uniform_proposal(x, dim, logLmin, survivor):
     start = time.time()
     accepted = 0
     rejected = 0
-    counter = 0
-    shrink = 0
+    n = 0
+    step = 1
     while True:
-        if counter > 200:
-            shrink += 0.001
-            if shrink > 0.99:
-                shrink = 0.98
-            counter = 0
-
+        n += 1
         new_line = np.zeros(dim+2, dtype=np.float64)
-        new_line[:dim] = np.random.uniform(-10 + 10*shrink, 10 - 10*shrink, size=dim)
+        new_line[:dim] = np.random.uniform(-step, step, size=dim)
         new_log_prior = log_prior(new_line[:dim], dim)
         new_line[dim] = new_log_prior[0]
+        new_line[dim+1] = log_likelihood(new_line[:dim], dim, init=False)[0]
 
-        # acceptance MH rule
-        if (new_log_prior - x[:dim]).all() > np.log(np.random.uniform(0, 1)):
-            new_line[dim+1] = log_likelihood(new_line[:dim], dim, init=False)[0]
-
-            if new_line[dim+1] < logLmin:
-                rejected += 1
-                counter += 1
-            if new_line[dim+1] > logLmin:
-                accepted += 1
+        if new_line[dim+1] < logLmin:
+            rejected += 1
+            counter += 1
+        if new_line[dim+1] > logLmin:
+            accepted += 1
+            boundary_point[:dim] = new_line[:dim]
+            if n > 20:
                 end = time.time()
-                return new_line, (end-start), accepted, rejected
+                break
+        if accepted != 0 and rejected != 0:
+            if accepted > rejected: step *= np.exp(1.0/accepted)
+            if accepted < rejected: step /= np.exp(1.0/rejected)
 
-def normal_proposal(x, dim, logLmin, survivor, std):
+        return new_line, (end-start), accepted, rejected
+
+def normal_proposal(x, dim, logLmin, boundary_point, std):
     ''' Sample a new object from the prior subject to the constrain L(x_new) > Lworst_old
 
     Parameters
@@ -119,30 +120,30 @@ def normal_proposal(x, dim, logLmin, survivor, std):
     rejected = 0
     n = 0
     new_line = np.zeros(dim+2, dtype=np.float64)
+    multiplier = it.cycle(np.arange(1,5))
     while True:
         n += 1
+        k = next(multiplier)
         for i in range(len(new_line[:dim])):
-            new_line[:dim][i] = np.random.normal(survivor[i], std)
-            while np.abs(new_line[:dim][i]) > 10.:
-                new_line[:dim][i] = survivor[i] + np.random.normal(0, std)
+            new_line[:dim][i] = boundary_point[i] + anglit(scale = k*std).rvs()
+            #new_line[:dim][i] = np.random.normal(boundary_point[i], std)
+            while np.abs(new_line[:dim][i]) > 5.:
+                new_line[:dim][i] = boundary_point[i] + anglit(scale = k*std).rvs()
+                #new_line[:dim][i] = np.random.normal(boundary_point[i], std)
 
         new_log_prior = log_prior(new_line[:dim], dim)
-        new_line[dim] = new_log_prior[0] # I choose the first since the priors are all the same
+        new_line[dim] = new_log_prior[0]
 
-        #if new_log_prior[0] - x[dim] > np.log(np.random.uniform(0,1)): # acceptance MH rule
         new_line[dim+1] = log_likelihood(new_line[:dim], dim, init=False)[0]
         if new_line[dim+1] < logLmin:
             rejected += 1
         if new_line[dim+1] > logLmin:
-            #n += 1
             accepted += 1
-            survivor[:dim] = new_line[:dim]
+            boundary_point[:dim] = new_line[:dim]
             if n > 20:
                 end = time.time()
                 break
-        if accepted != 0 and rejected != 0:
-            if accepted > rejected: std *= np.exp(1.0/accepted)
-            if accepted < rejected: std /= np.exp(1.0/rejected)
+
     return new_line, (end-start), accepted, rejected
 
 def nested_samplig(live_points, dim, resample_function=uniform_proposal, verbose=False):
@@ -151,67 +152,66 @@ def nested_samplig(live_points, dim, resample_function=uniform_proposal, verbose
 
     N = live_points.shape[0]
     f = np.log(0.05)
-    Area = []; Zlog = []; logL_worst = []; T = []; prior_mass = [] # lists for plots
+    area = []; Zlog = [[],[]]; logL_worst = []; T = []; prior_mass = [] # lists for plots
 
     logZ = -np.inf
-    parameters = np.random.uniform(-10, 10, size=(N, dim))
+    H = 0
+    parameters = np.random.uniform(-5, 5, size=(N, dim))
     live_points[:, :dim] = parameters
     live_points[:, dim] = log_prior(parameters, dim)
     live_points[:, dim+1] = log_likelihood(parameters, dim, init=True)
     logwidth = np.log(1.0 - np.exp(-1.0/N))
-    max_log_l = dim*np.log(2*boundary) - 0.5*dim*np.log(2*np.pi)
 
     steps = 0
-    multiplier_steps = 0; multiplier = 5
-    accepted = 0
     rejected = 0
+    accepted = 0
     while True:
         steps += 1
-        multiplier_steps += 1
-        if multiplier_steps > 100:
-            multiplier -= 0.03
-            multiplier_steps = 0
-        if multiplier < 0.1:
-            multiplier = 0.1
         prior_mass.append(logwidth)
+
         Lw_idx = np.argmin(live_points[:, dim+1])
         logLw = live_points[Lw_idx, dim+1]
+        logL_worst.append(logLw)
+
         logZnew = np.logaddexp(logZ, logwidth+logLw)
+        logZ = logZnew
+
+        H += (np.exp(logwidth)*np.exp(logLw))/np.exp(logZ) * np.log(np.exp(logLw)/np.exp(logZ))
+        error = np.sqrt(H/steps)
+        Zlog[0].append(np.exp(logZ + error))
+        Zlog[1].append(np.exp(logZ - error))
 
         survivors = np.delete(live_points, Lw_idx, axis=0)
-        std = np.std(survivors[:dim])*multiplier
-        k = survivors.shape[0]
-        survivor = live_points[Lw_idx,:dim]
+        std = np.mean(np.std(survivors[:dim], axis = 0))
+        boundary_point = live_points[Lw_idx,:dim]
 
-        logL_worst.append(logLw)
-        Area.append(logwidth+logLw)
-        Zlog.append(logZnew)
+        area.append(logwidth+logLw)
 
-        logZ = logZnew
         if verbose:
-            print("dim = {0} it:{1} log(Lw) = {2:.2f} term_cond = {3:.2f} log(w) = {4:.2f} log(Z) = {5:.2f} multiplier = {6:.2f}".format(dim, steps, logLw, (max_log_l - steps/N - f - logZ),  logwidth, logZ, multiplier))
+            print("i:{0} d = {1} log(Lw) = {2:.2f} t.c. = {3:.2f} log(Z) = {4:.2f} std = {5:.2f} e = {6:.2f}".format(steps, dim, logLw, (max(live_points[:,dim+1]) - steps/N - f - logZ), logZ, std, error))
 
-        new_sample, t, acc, rej = resample_function(live_points[Lw_idx], dim, logLw, survivor, std)
+        new_sample, t, acc, rej = resample_function(live_points[Lw_idx], dim, logLw, boundary_point, std)
         accepted += acc
         rejected += rej
-        survivor = new_sample[:dim]
         T.append(t)
+
         live_points[Lw_idx] = new_sample
         logwidth -= 1.0/N
-        if max_log_l - steps/N < f + logZ:
+
+        if max(live_points[:,dim+1]) - (steps+steps**0.5)/N < f + logZ:
             break
 
     final_term = np.log(np.exp(live_points[:,dim+1]).sum()*np.exp(-steps/N)/N)
     logZ = np.logaddexp(logZ, final_term)
 
-    return np.exp(Area), np.exp(Zlog), np.exp(logL_worst), prior_mass, np.exp(logZ), T, steps, accepted, rejected
+    return np.exp(area), Zlog, np.exp(logL_worst), prior_mass, np.exp(logZ), T, steps, accepted, rejected
 
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Nested sampling')
     parser.add_argument('--dim', '-d', type=int, help='Max dimension of the parameter spaces')
     parser.add_argument('--num_live_points', '-n', type=int, help='Number of live points')
-    parser.add_argument('--boundary', '-b', type=int, default=10, help='Boundaries for the prior (centered at zero). The default is 10 ')
+    parser.add_argument('--boundary', '-b', type=int, default=5, help='Boundaries for the prior (centered at zero). The default is 5 ')
     parser.add_argument('--proposal', '-pr', type=int, help='Proposal for the new object from the prior. 0 for uniform, 1 for normal')
     parser.add_argument('--plot', '-p', action='store_true', help='Plot the plots')
     parser.add_argument('--verbose', '-v', action='store_true', help='Print some info during iterations. the default is False')
@@ -247,7 +247,9 @@ if __name__ == "__main__":
             fig, ax1 = plt.subplots()
             ax1.plot(area_plot, color = 'k', label = 'Li*wi')
             ax2 = ax1.twinx()
-            ax2.plot(evidence_plot, color = 'r', label = 'Z')
+            ax2.plot(evidence_plot[0], color = 'r', label = 'Z + e')
+            ax2.plot(evidence_plot[1], color = 'r', label = 'Z - e')
+            plt.fill_between(np.arange(len(evidence_plot[0])),evidence_plot[0],evidence_plot[1], color='r', alpha=0.3)
             ax1.set_xlabel('Iterations')
             plt.grid()
             fig.legend()

@@ -2,21 +2,21 @@
                     
  Dimension of the integral = 10
                     
- Number of steps required = 26003
+ Number of steps required = 15557
                     
- Evidence = 0.53
+ Evidence = 2.69
                     
- Maximum of the likelihood = 1045684365.78
+ Maximum of the likelihood = 1021176.14
                     
  Proposal chosen: Normal
                     
  Last area value = 0.00
                     
- Last worst Likelihood = 191255862.01103657
- Accepted and rejected points: 260030, 925300
+ Last worst Likelihood = 316545.4323737621
+ Accepted and rejected points: 193861, 148544
                     
  Mass prior sum = 1.00
                     
- Total time: 158.39 s
+ Total time: 13022.26 s
                     
 =================================
