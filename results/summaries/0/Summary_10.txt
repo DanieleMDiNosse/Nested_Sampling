@@ -1,22 +1,22 @@
 ============ SUMMARY ============
                     
- Dimension of the integral = 1
+ Dimension of the integral = 10
                     
- Number of steps required = 6578
+ Number of steps required = 24834
                     
- Evidence = 0.99
+ Evidence = 0.91
                     
- Maximum of the likelihood = 3.99
+ Maximum of the likelihood = 1021176.14
                     
  Proposal chosen: Uniform
                     
  Last area value = 0.00
                     
- Last worst Likelihood = 3.9836536984704227
- Accepted and rejected points: 71313, 79504
+ Last worst Likelihood = 240554.27264781474
+ Accepted and rejected points: 271388, 286569
                     
- Mass prior sum = 0.99
+ Mass prior sum = 1.00
                     
- Total time: 13.60 s
+ Total time: 51.57 s
                     
 =================================

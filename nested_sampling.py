@@ -67,7 +67,7 @@ def log_prior(x, dim, boundary=5):
 
     return prior
 
-def uniform_proposal(x, dim, logLmin, survivor):
+def uniform_proposal(x, dim, logLmin, boundary_point, std):
     ''' Sample a new object from the prior subject to the constrain L(x_new) > Lworst_old
 
     Parameters
@@ -85,14 +85,13 @@ def uniform_proposal(x, dim, logLmin, survivor):
     while True:
         n += 1
         new_line = np.zeros(dim+2, dtype=np.float64)
-        new_line[:dim] = np.random.uniform(-step, step, size=dim)
+        new_line[:dim] = boundary_point[:dim] + np.random.uniform(-std, std, size=dim)
         new_log_prior = log_prior(new_line[:dim], dim)
         new_line[dim] = new_log_prior[0]
         new_line[dim+1] = log_likelihood(new_line[:dim], dim, init=False)[0]
 
         if new_line[dim+1] < logLmin:
             rejected += 1
-            counter += 1
         if new_line[dim+1] > logLmin:
             accepted += 1
             boundary_point[:dim] = new_line[:dim]
@@ -100,10 +99,10 @@ def uniform_proposal(x, dim, logLmin, survivor):
                 end = time.time()
                 break
         if accepted != 0 and rejected != 0:
-            if accepted > rejected: step *= np.exp(1.0/accepted)
-            if accepted < rejected: step /= np.exp(1.0/rejected)
+            if accepted > rejected: std *= np.exp(1.0/accepted)
+            if accepted < rejected: std /= np.exp(1.0/rejected)
 
-        return new_line, (end-start), accepted, rejected
+    return new_line, (end-start), accepted, rejected
 
 def normal_proposal(x, dim, logLmin, boundary_point, std):
     ''' Sample a new object from the prior subject to the constrain L(x_new) > Lworst_old
@@ -152,7 +151,7 @@ def nested_samplig(live_points, dim, resample_function=uniform_proposal, verbose
 
     N = live_points.shape[0]
     f = np.log(0.05)
-    area = []; Zlog = [[],[]]; logL_worst = []; T = []; prior_mass = [] # lists for plots
+    area = []; Zlog = [[],[]]; logL_worst = []; T = []; prior_mass = []
 
     logZ = -np.inf
     H = 0
@@ -233,7 +232,7 @@ if __name__ == "__main__":
     n = args.num_live_points
     dim = args.dim
     boundary = args.boundary
-    for d in tqdm(range(1,dim+1,2)):
+    for d in tqdm(range(dim,dim+1)):
         live_points = np.zeros((n, d+2), dtype=np.float64) # the first dim columns for each row represents my multidimensional array of parameters
         if args.proposal == 0:
             prop = 'Uniform'
