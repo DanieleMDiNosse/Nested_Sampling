@@ -233,7 +233,7 @@ if __name__ == "__main__":
     n = args.num_live_points
     dim = args.dim
     boundary = args.boundary
-    for d in tqdm(range(1,dim+1)):
+    for d in tqdm(range(1,dim+1,2)):
         live_points = np.zeros((n, d+2), dtype=np.float64) # the first dim columns for each row represents my multidimensional array of parameters
         if args.proposal == 0:
             prop = 'Uniform'
