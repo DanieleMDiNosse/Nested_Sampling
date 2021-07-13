@@ -8,7 +8,7 @@
                     
  Maximum of the likelihood = 15.92
                     
- Proposal chosen: Uniform
+ Proposal chosen: uniform
                     
  Last area value = 0.00
                     
@@ -17,6 +17,6 @@
                     
  Mass prior sum = 1.00
                     
- Total time: 15.20 s
+ Total time: 14.35 s
                     
 =================================

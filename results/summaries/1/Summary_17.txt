@@ -2,21 +2,21 @@
                     
  Dimension of the integral = 17
                     
- Number of steps required = 3957
+ Number of steps required = 46246
                     
- Evidence = 1.41
+ Evidence = 0.01
                     
- Maximum of the likelihood = 2152687778746623.25
+ Maximum of the likelihood = 16423704366.66
                     
- Proposal chosen: Normal
+ Proposal chosen: normal
                     
  Last area value = 0.00
                     
- Last worst Likelihood = 24872221378310.266
- Accepted and rejected points: 3957, 29880
+ Last worst Likelihood = 324252801.02097696
+ Accepted and rejected points: 350086, 200963
                     
  Mass prior sum = 1.00
                     
- Total time: 86.66 s
+ Total time: 274.89 s
                     
 =================================
