@@ -6,6 +6,7 @@ import itertools as it
 from tqdm import tqdm
 from scipy.stats import anglit
 import time
+from statsmodels.graphics.tsaplots import plot_acf
 
 
 def log_likelihood(x, dim, init, boundary=5):
@@ -15,19 +16,21 @@ def log_likelihood(x, dim, init, boundary=5):
     Parameters
     ----------
     x : numpy.array
-        If init is set to True, x should be a MxN matrix whose M rows are random N-dimensional vectors.
+        If init is set to True, x should be a MxN matrix whose M rows (number of points) are random N-dimensional vectors.
         In this case it is used to initialize the likelihood of the live points.
         If init is set to False, x should be just a random N dimensional vector.
-
     dim : int
         Dimension of the parameter space.
-
     init: bool
         You can choose to use the funcion to initialize the likelihood of the live points (True) or
         to generate just a new likelihood value (False)
-
     boundary : init, optional
-        Boundary of the parameter space.
+        Boundary of the parameter space. The default is 5
+
+    Returns
+    --------
+    Likelihood : list or float
+        Likelihood values or singole likelihood value
     '''
 
     likelihood = []
@@ -47,14 +50,19 @@ def log_prior(x, dim, boundary=5):
     '''Return a uniform prior for each value of the N-dimension vector x. It is set in such a way that the
     integral of the product with the likelihood over the parameter space is 1.
 
+    Parameters
+    -----------
     x : numpy.array
         A random N dimensional vector.
-
     dim : int
         Dimension of the parameter space.
-
     boundary : init, optional
-        Boundary of the parameter space.
+        Boundary of the parameter space. The default is 5
+
+    Retruns
+    -------
+    prior : list
+        List of prior values.
     '''
 
     prior = []
@@ -74,8 +82,24 @@ def uniform_proposal(x, dim, logLmin, boundary_point, std):
     ----------
     x : numpy array
         Array (parameter, prior, likelihood) corresponding to the worst likelihood
+    dim : int
+        Dimension of the parameter space.
     logLmin : float64
         Worst likelihood, i.e. The third element of x
+    boundary_points : numpy array
+        Array of parameters corresponding to the worst likelihood computer at iteration k of NS
+    std : float
+        Limits of the uniform distribution proposal. The name comes from the fact that it corresponds
+        to the mean of standard deviations of the points along the axis of the parameter space
+
+    Returns
+    -------
+    new_line : numpy array
+        New sampled object that satisfies the likelihood constrain
+    t : float
+        Seconds required for the resampling
+    accepted, rejected : int
+        Accepted/rejected number of points during the resampling
     '''
     start = time.time()
     accepted = 0
@@ -85,7 +109,8 @@ def uniform_proposal(x, dim, logLmin, boundary_point, std):
     while True:
         n += 1
         new_line = np.zeros(dim+2, dtype=np.float64)
-        new_line[:dim] = boundary_point[:dim] + np.random.uniform(-std, std, size=dim)
+        k = 1.45/np.log(np.sqrt(dim))
+        new_line[:dim] = boundary_point[:dim] + np.random.uniform(-k*std, k*std, size=dim)
         new_log_prior = log_prior(new_line[:dim], dim)
         new_line[dim] = new_log_prior[0]
         new_line[dim+1] = log_likelihood(new_line[:dim], dim, init=False)[0]
@@ -95,14 +120,15 @@ def uniform_proposal(x, dim, logLmin, boundary_point, std):
         if new_line[dim+1] > logLmin:
             accepted += 1
             boundary_point[:dim] = new_line[:dim]
-            if n > 20:
+            if n > 10:
                 end = time.time()
+                t = end - start
                 break
         if accepted != 0 and rejected != 0:
             if accepted > rejected: std *= np.exp(1.0/accepted)
             if accepted < rejected: std /= np.exp(1.0/rejected)
 
-    return new_line, (end-start), accepted, rejected
+    return new_line, t, accepted, rejected
 
 def normal_proposal(x, dim, logLmin, boundary_point, std):
     ''' Sample a new object from the prior subject to the constrain L(x_new) > Lworst_old
@@ -118,16 +144,16 @@ def normal_proposal(x, dim, logLmin, boundary_point, std):
     accepted = 0
     rejected = 0
     n = 0
-    new_line = np.zeros(dim+2, dtype=np.float64)
-    multiplier = it.cycle(np.arange(1,5))
+    accepted_object = []
     while True:
         n += 1
-        k = next(multiplier)
+        #k = next(multiplier)
+        new_line = np.zeros(dim+2, dtype=np.float64)
         for i in range(len(new_line[:dim])):
-            new_line[:dim][i] = boundary_point[i] + anglit(scale = k*std).rvs()
+            new_line[:dim][i] = boundary_point[i] + anglit(scale = 2.5*std).rvs()
             #new_line[:dim][i] = np.random.normal(boundary_point[i], std)
             while np.abs(new_line[:dim][i]) > 5.:
-                new_line[:dim][i] = boundary_point[i] + anglit(scale = k*std).rvs()
+                new_line[:dim][i] = boundary_point[i] + anglit(scale = 2.5*std).rvs()
                 #new_line[:dim][i] = np.random.normal(boundary_point[i], std)
 
         new_log_prior = log_prior(new_line[:dim], dim)
@@ -136,25 +162,44 @@ def normal_proposal(x, dim, logLmin, boundary_point, std):
         new_line[dim+1] = log_likelihood(new_line[:dim], dim, init=False)[0]
         if new_line[dim+1] < logLmin:
             rejected += 1
+            #new_line[:dim] = boundary_point[:dim]
         if new_line[dim+1] > logLmin:
             accepted += 1
             boundary_point[:dim] = new_line[:dim]
-            if n > 20:
+            #accepted_object.append(boundary_point[0])
+            if n > 10:
+                #accepted_object = np.array(accepted_object)
                 end = time.time()
+                #plot_acf(accepted_object, lags=50)
+                #plt.show()
                 break
+            if accepted != 0 and rejected != 0:
+                if accepted > rejected: std *= np.exp(1.0/accepted)
+                if accepted < rejected: std /= np.exp(1.0/rejected)
 
     return new_line, (end-start), accepted, rejected
 
 def nested_samplig(live_points, dim, resample_function=uniform_proposal, verbose=False):
-    '''Nested Sampling by Skilling (2006)
-    '''
+    '''Nested Sampling by Skilling (2004)
+
+    Parameters
+    ----------
+    live_points : numpy array
+        Numpy array of dimension (number of live points, dimension + 2). From column 0 to d(=dimension) the vectors of parameter sampled from the parameter space are placed, column d+1 corresponds to the priors value and the last to the likelihood values
+    dim : int
+        Dimension of the parameter space.
+    resample_function : str
+        Choose between uniform or normal resample distribution
+    verbose : bool
+        Print some information. The default is False
+        '''
 
     N = live_points.shape[0]
-    f = np.log(0.05)
-    area = []; Zlog = [[],[]]; logL_worst = []; T = []; prior_mass = []
+    f = np.log(0.01)
+    area = []; Zlog = [[],[]]; logL_worst = []; T = []; prior_mass = []; logH_list = []
 
     logZ = -np.inf
-    H = 0
+    logH = -np.inf
     parameters = np.random.uniform(-5, 5, size=(N, dim))
     live_points[:, :dim] = parameters
     live_points[:, dim] = log_prior(parameters, dim)
@@ -175,8 +220,9 @@ def nested_samplig(live_points, dim, resample_function=uniform_proposal, verbose
         logZnew = np.logaddexp(logZ, logwidth+logLw)
         logZ = logZnew
 
-        H += (np.exp(logwidth)*np.exp(logLw))/np.exp(logZ) * np.log(np.exp(logLw)/np.exp(logZ))
-        error = np.sqrt(H/steps)
+        logH = np.logaddexp(logH, logwidth + logLw - logZ + np.log(logLw - logZ))
+        logH_list.append(logH)
+        error = np.sqrt(np.exp(logH)/steps)
         Zlog[0].append(np.exp(logZ + error))
         Zlog[1].append(np.exp(logZ - error))
 
@@ -187,7 +233,7 @@ def nested_samplig(live_points, dim, resample_function=uniform_proposal, verbose
         area.append(logwidth+logLw)
 
         if verbose:
-            print("i:{0} d = {1} log(Lw) = {2:.2f} t.c. = {3:.2f} log(Z) = {4:.2f} std = {5:.2f} e = {6:.2f}".format(steps, dim, logLw, (max(live_points[:,dim+1]) - steps/N - f - logZ), logZ, std, error))
+            print("i:{0} d = {1} log(Lw) = {2:.2f} t.c. = {3:.2f} log(Z) = {4:.2f} std = {5:.2f} e = {6:.2f} H = {7:.2f}".format(steps, dim, logLw, (max(live_points[:,dim+1]) - steps/N - f - logZ), logZ, std, error, np.exp(logH)))
 
         new_sample, t, acc, rej = resample_function(live_points[Lw_idx], dim, logLw, boundary_point, std)
         accepted += acc
@@ -203,7 +249,7 @@ def nested_samplig(live_points, dim, resample_function=uniform_proposal, verbose
     final_term = np.log(np.exp(live_points[:,dim+1]).sum()*np.exp(-steps/N)/N)
     logZ = np.logaddexp(logZ, final_term)
 
-    return np.exp(area), Zlog, np.exp(logL_worst), prior_mass, np.exp(logZ), T, steps, accepted, rejected
+    return np.exp(area), Zlog, np.exp(logL_worst), prior_mass, np.exp(logZ), T, steps, accepted, rejected, logH_list
 
 if __name__ == "__main__":
 
@@ -232,15 +278,21 @@ if __name__ == "__main__":
     n = args.num_live_points
     dim = args.dim
     boundary = args.boundary
-    for d in tqdm(range(dim,dim+1)):
-        live_points = np.zeros((n, d+2), dtype=np.float64) # the first dim columns for each row represents my multidimensional array of parameters
+    for d in tqdm(range(dim,dim+1,2)):
+        live_points = np.zeros((n, d+2), dtype=np.float64)
         if args.proposal == 0:
             prop = 'Uniform'
-            area_plot, evidence_plot, likelihood_worst, prior_mass, evidence, t_resample, steps, acc, rej = nested_samplig(live_points, d, resample_function=uniform_proposal, verbose=args.verbose)
+            area_plot, evidence_plot, likelihood_worst, prior_mass, evidence, t_resample, steps, acc, rej, logH = nested_samplig(live_points, d, resample_function=uniform_proposal, verbose=args.verbose)
         if args.proposal == 1:
             prop = 'Normal'
             area_plot, evidence_plot, likelihood_worst, prior_mass, evidence, t_resample, steps, acc, rej = nested_samplig(live_points, d, resample_function=normal_proposal, verbose=args.verbose)
 
+        print(logH[-1])
+        plt.figure()
+        plt.plot(prior_mass[:len(area_plot)],area_plot)
+        plt.xlabel('Prior mass (log)')
+        plt.ylabel('L*w')
+        plt.show()
         if args.plot:
 
             fig, ax1 = plt.subplots()
@@ -268,7 +320,7 @@ if __name__ == "__main__":
             plt.ylabel('Resampling time')
             plt.title('Time for resampling')
             plt.savefig(f'results/images/{args.proposal}/resampling_time_{d}.png')
-            plt.show()
+            #plt.show()
             plt.close('all')
 
         end = time.time()
