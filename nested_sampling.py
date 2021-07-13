@@ -10,20 +10,22 @@ from statsmodels.graphics.tsaplots import plot_acf
 
 
 def log_likelihood(x, dim, init, boundary=5):
-    ''' Return the logarithm of a N-dimensional gaussian likelihood. It is set in such a way that the
-    integral of the product with the prior over the parameter space is 1.
+    ''' Return the logarithm of a N-dimensional gaussian likelihood.
+    It is set in such a way that the integral of the product with the
+    prior over the parameter space is 1.
 
     Parameters
     ----------
     x : numpy.array
-        If init is set to True, x should be a MxN matrix whose M rows (number of points) are random N-dimensional vectors.
-        In this case it is used to initialize the likelihood of the live points.
-        If init is set to False, x should be just a random N dimensional vector.
+        If init is set to True, x should be a MxN matrix whose M rows (number of points)
+        are random N-dimensional vectors. In this case it is used to initialize the
+        likelihood of the live points. If init is set to False, x should be just a
+        random N dimensional vector.
     dim : int
         Dimension of the parameter space.
     init: bool
-        You can choose to use the funcion to initialize the likelihood of the live points (True) or
-        to generate just a new likelihood value (False)
+        You can choose to use the funcion to initialize the likelihood of the live
+        points (True) or to generate just a new likelihood value (False)
     boundary : init, optional
         Boundary of the parameter space. The default is 5
 
@@ -47,8 +49,9 @@ def log_likelihood(x, dim, init, boundary=5):
     return likelihood
 
 def log_prior(x, dim, boundary=5):
-    '''Return a uniform prior for each value of the N-dimension vector x. It is set in such a way that the
-    integral of the product with the likelihood over the parameter space is 1.
+    '''Return a uniform prior for each value of the N-dimension vector x.
+    It is set in such a way that the integral of the product with the
+    likelihood over the parameter space is 1.
 
     Parameters
     -----------
@@ -75,7 +78,7 @@ def log_prior(x, dim, boundary=5):
 
     return prior
 
-def uniform_proposal(x, dim, logLmin, boundary_point, std):
+def proposal(x, dim, logLmin, boundary_point, std, distribution):
     ''' Sample a new object from the prior subject to the constrain L(x_new) > Lworst_old
 
     Parameters
@@ -87,11 +90,15 @@ def uniform_proposal(x, dim, logLmin, boundary_point, std):
     logLmin : float64
         Worst likelihood, i.e. The third element of x
     boundary_points : numpy array
-        Array of parameters corresponding to the worst likelihood computer at iteration k of NS
+        Array of parameters corresponding to the worst likelihood computer at iteration
+        k of NS
     std : float
-        Limits of the uniform distribution proposal. The name comes from the fact that it corresponds
-        to the mean of standard deviations of the points along the axis of the parameter space
-
+        Limits of the uniform distribution proposal or standard deviation of the normal/anglit
+        distribution. The name comes from the fact that it correspondsto the mean of standard
+        deviations of the points along the axis of the parameter space
+    distribution : string
+        Choose the distribution from which the new object should be sampled.
+        Available options are 'uniform', 'normal', 'anglit'.
     Returns
     -------
     new_line : numpy array
@@ -109,8 +116,24 @@ def uniform_proposal(x, dim, logLmin, boundary_point, std):
     while True:
         n += 1
         new_line = np.zeros(dim+2, dtype=np.float64)
-        k = 1.45/np.log(np.sqrt(dim))
-        new_line[:dim] = boundary_point[:dim] + np.random.uniform(-k*std, k*std, size=dim)
+        k_u = 1.45/np.log(np.sqrt(dim))
+        k_n = 1.5/dim
+
+        if distribution == 'uniform':
+            new_line[:dim] = boundary_point[:dim] + np.random.uniform(-k_u*std, k_u*std, size=dim)
+
+
+        for i in range(len(new_line[:dim])):
+            if distribution == 'normal':
+                new_line[:dim][i] = np.random.normal(boundary_point[i], k_n*std)
+                while np.abs(new_line[:dim][i]) > 5.:
+                    new_line[:dim][i] = np.random.normal(boundary_point[i], k_n*std)
+
+            if distribution == 'anglit':
+                new_line[:dim][i] = boundary_point[i] + anglit(scale = 2.5*std).rvs()
+                while np.abs(new_line[:dim][i]) > 5.:
+                    new_line[:dim][i] = boundary_point[i] + anglit(scale = 2.5*std).rvs()
+
         new_log_prior = log_prior(new_line[:dim], dim)
         new_line[dim] = new_log_prior[0]
         new_line[dim+1] = log_likelihood(new_line[:dim], dim, init=False)[0]
@@ -170,6 +193,7 @@ def normal_proposal(x, dim, logLmin, boundary_point, std):
             if n > 10:
                 #accepted_object = np.array(accepted_object)
                 end = time.time()
+                t = end - start
                 #plot_acf(accepted_object, lags=50)
                 #plt.show()
                 break
@@ -179,13 +203,15 @@ def normal_proposal(x, dim, logLmin, boundary_point, std):
 
     return new_line, (end-start), accepted, rejected
 
-def nested_samplig(live_points, dim, resample_function=uniform_proposal, verbose=False):
+def nested_samplig(live_points, dim, proposal_distribution, verbose=False):
     '''Nested Sampling by Skilling (2004)
 
     Parameters
     ----------
     live_points : numpy array
-        Numpy array of dimension (number of live points, dimension + 2). From column 0 to d(=dimension) the vectors of parameter sampled from the parameter space are placed, column d+1 corresponds to the priors value and the last to the likelihood values
+        Numpy array of dimension (number of live points, dimension + 2). From column 0
+        to d(=dimension) the vectors of parameter sampled from the parameter space are
+        placed, column d+1 corresponds to the priors value and the last to the likelihood values
     dim : int
         Dimension of the parameter space.
     resample_function : str
@@ -233,9 +259,9 @@ def nested_samplig(live_points, dim, resample_function=uniform_proposal, verbose
         area.append(logwidth+logLw)
 
         if verbose:
-            print("i:{0} d = {1} log(Lw) = {2:.2f} t.c. = {3:.2f} log(Z) = {4:.2f} std = {5:.2f} e = {6:.2f} H = {7:.2f}".format(steps, dim, logLw, (max(live_points[:,dim+1]) - steps/N - f - logZ), logZ, std, error, np.exp(logH)))
+            print("i:{0} d={1} log(Lw)={2:.2f} term={3:.2f} log(Z)={4:.2f} std={5:.2f} e={6:.2f} H={7:.2f} prop={8}".format(steps, dim, logLw, (max(live_points[:,dim+1]) - steps/N - f - logZ), logZ, std, error, np.exp(logH), proposal_distribution))
 
-        new_sample, t, acc, rej = resample_function(live_points[Lw_idx], dim, logLw, boundary_point, std)
+        new_sample, t, acc, rej = proposal(live_points[Lw_idx], dim, logLw, boundary_point, std, proposal_distribution)
         accepted += acc
         rejected += rej
         T.append(t)
@@ -257,7 +283,7 @@ if __name__ == "__main__":
     parser.add_argument('--dim', '-d', type=int, help='Max dimension of the parameter spaces')
     parser.add_argument('--num_live_points', '-n', type=int, help='Number of live points')
     parser.add_argument('--boundary', '-b', type=int, default=5, help='Boundaries for the prior (centered at zero). The default is 5 ')
-    parser.add_argument('--proposal', '-pr', type=int, help='Proposal for the new object from the prior. 0 for uniform, 1 for normal')
+    parser.add_argument('--proposal', '-pr', type=int, help='Proposal for the new object from the prior. 0 for uniform, 1 for normal, 2 for anglit')
     parser.add_argument('--plot', '-p', action='store_true', help='Plot the plots')
     parser.add_argument('--verbose', '-v', action='store_true', help='Print some info during iterations. the default is False')
     parser.add_argument("-log", "--log", default="info",
@@ -278,21 +304,22 @@ if __name__ == "__main__":
     n = args.num_live_points
     dim = args.dim
     boundary = args.boundary
-    for d in tqdm(range(dim,dim+1,2)):
-        live_points = np.zeros((n, d+2), dtype=np.float64)
-        if args.proposal == 0:
-            prop = 'Uniform'
-            area_plot, evidence_plot, likelihood_worst, prior_mass, evidence, t_resample, steps, acc, rej, logH = nested_samplig(live_points, d, resample_function=uniform_proposal, verbose=args.verbose)
-        if args.proposal == 1:
-            prop = 'Normal'
-            area_plot, evidence_plot, likelihood_worst, prior_mass, evidence, t_resample, steps, acc, rej = nested_samplig(live_points, d, resample_function=normal_proposal, verbose=args.verbose)
+    if args.proposal == 0: prop = 'uniform'
+    if args.proposal == 1: prop = 'normal'
+    if args.proposal == 2: prop = 'anglit'
 
-        print(logH[-1])
-        plt.figure()
-        plt.plot(prior_mass[:len(area_plot)],area_plot)
-        plt.xlabel('Prior mass (log)')
-        plt.ylabel('L*w')
-        plt.show()
+    for d in tqdm(range(2,dim+1,3)):
+        live_points = np.zeros((n, d+2), dtype=np.float64)
+
+        area_plot, evidence_plot, likelihood_worst, prior_mass, evidence, t_resample, steps, acc, rej, logH = nested_samplig(live_points, d, proposal_distribution = prop, verbose=args.verbose)
+
+
+        #print(logH[-1])
+        #plt.figure()
+        #plt.plot(prior_mass[:len(area_plot)],area_plot)
+        #plt.xlabel('Prior mass (log)')
+        #plt.ylabel('L*w')
+        #plt.show()
         if args.plot:
 
             fig, ax1 = plt.subplots()
