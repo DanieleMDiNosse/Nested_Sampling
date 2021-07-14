@@ -195,7 +195,7 @@ if __name__ == "__main__":
     if args.proposal == 1: prop = 'normal'
     if args.proposal == 2: prop = 'anglit'
 
-    for d in tqdm(range(dim,dim+1)):
+    for d in tqdm(range(2,dim+1,3)):
         t_start = time.time()
         live_points = np.zeros((n, d+2), dtype=np.float64)
 
