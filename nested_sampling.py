@@ -1,8 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import argparse
-import logging
-import itertools as it
 from tqdm import tqdm
 from scipy.stats import anglit
 import time
