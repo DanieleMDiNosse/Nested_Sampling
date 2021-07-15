@@ -5,7 +5,6 @@ from tqdm import tqdm
 from scipy.stats import anglit
 import logging
 import time
-import itertools as it
 from functions import log_likelihood, autocorrelation, proposal
 
 def nested_samplig(live_points, dim, boundary, proposal_distribution, verbose=False):
@@ -58,6 +57,8 @@ def nested_samplig(live_points, dim, boundary, proposal_distribution, verbose=Fa
 
         survivors = np.delete(live_points, Lw_idx, axis=0)
         std = np.mean(np.std(survivors[:dim], axis = 0))
+        print(std)
+        time.sleep(1)
         boundary_point = live_points[Lw_idx,:dim]
 
         area.append(logwidth+logLw)
@@ -90,7 +91,7 @@ if __name__ == "__main__":
     parser.add_argument('--dim', '-d', type=int, help='Max dimension of the parameter spaces')
     parser.add_argument('--num_live_points', '-n', type=int, help='Number of live points')
     parser.add_argument('--boundary', '-b', type=int, default=5, help='Boundaries for the prior (centered at zero). The default is 5 ')
-    parser.add_argument('--proposal', '-pr', type=int, help='Proposal for the new object from the prior. 0 for uniform, 1 for normal, 2 for anglit')
+    parser.add_argument('--proposal', '-pr', type=int, help='Proposal for the new object from the prior. 0 for uniform, 1 for normal')
     parser.add_argument('--plot', '-p', action='store_true', help='Plot the plots')
     parser.add_argument('--summary_plot', '-sp', action='store_true', help='Plot some summary information')
     parser.add_argument('--verbose', '-v', action='store_true', help='Print some info during iterations. the default is False')
@@ -108,30 +109,29 @@ if __name__ == "__main__":
     logging.basicConfig(level=levels[args.log])
     np.random.seed(95)
 
-    start = time.time()
     n = args.num_live_points
     dim = args.dim
     boundary = args.boundary
-    time_tot = []
-    log_evidence_values = []
-    error_values = []
-    range_dim = np.arange(2,dim+1,3)
-    true_values = [-d*np.log(2*boundary) for d in range_dim]
     if args.proposal == 0: prop = 'uniform'
     if args.proposal == 1: prop = 'normal'
-    if args.proposal == 2: prop = 'anglit'
+
+    time_tot = []; log_evidence_values = []; error_values = []
+
+    range_dim = np.arange(2,dim+1,3)
+
+    true_values = [-d*np.log(2*boundary) for d in range_dim]
+
 
     for d in tqdm(range_dim):
         t_start = time.time()
-        live_points = np.zeros((n, d+1), dtype=np.float64)
 
+        live_points = np.zeros((n, d+1), dtype=np.float64)
         area_plot, evidence_plot, likelihood_worst, prior_mass, log_evidence, t_resample, steps, acc, rej, logH, error = nested_samplig(live_points, d, boundary, proposal_distribution=prop, verbose=args.verbose)
 
         t_end = time.time()
-        end = time.time()
         t_total = t_end - t_start
-        time_tot.append(t_total)
 
+        time_tot.append(t_total)
         log_evidence_values.append(log_evidence)
         error_values.append(error)
 
@@ -170,7 +170,7 @@ if __name__ == "__main__":
                     \n Last worst Likelihood = {likelihood_worst[-1]:.2f}
                     \n Accepted and rejected points: {acc}, {rej}
                     \n Mass prior sum = {np.exp(prior_mass).sum():.2f}
-                    \n Total time: {end-start:.2f} s
+                    \n Total time: {t_total:.2f} s
                     \n=================================''')
 
     if args.summary_plot:
@@ -180,7 +180,7 @@ if __name__ == "__main__":
         plt.ylabel('Time (s)')
         plt.xlabel('Dimension')
         plt.grid()
-        plt.scatter(np.arange(len(time_tot)), time_tot, c='black')
+        plt.scatter(range_dim, time_tot, c='black')
         plt.savefig(f'results/images/Total_time_per_dim_{args.proposal}.png')
 
         plt.figure()

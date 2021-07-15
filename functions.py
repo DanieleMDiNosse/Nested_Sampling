@@ -2,6 +2,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import time
+import itertools as it
 
 def log_likelihood(x, dim, init):
     ''' Return the logarithm of a N-dimensional gaussian likelihood.
@@ -20,8 +21,6 @@ def log_likelihood(x, dim, init):
     init: bool
         You can choose to use the funcion to initialize the likelihood of the live
         points (True) or to generate just a new likelihood value (False)
-    boundary : init, optional
-        Boundary of the parameter space. The default is 5
 
     Returns
     --------
@@ -51,6 +50,8 @@ def autocorrelation(x, max_lag, bootstrap=False):
         Input array for the autocorrelation function
     max_lag : int
         Maximum lag to be used for the AC
+    bootstrap : bool
+        Compute the bootstrap test
 
     Returns
     --------
@@ -110,16 +111,14 @@ def proposal(x, dim, logLmin, boundary_point, boundary, std, distribution):
         Dimension of the parameter space.
     logLmin : float64
         Worst likelihood, i.e. The third element of x
-    boundary_points : numpy array
-        Array of parameters corresponding to the worst likelihood computer at iteration
-        k of NS
     std : float
         Limits of the uniform distribution proposal or standard deviation of the normal/anglit
         distribution. The name comes from the fact that it correspondsto the mean of standard
         deviations of the points along the axis of the parameter space
     distribution : string
         Choose the distribution from which the new object should be sampled.
-        Available options are 'uniform', 'normal', 'anglit'.
+        Available options are 'uniform', 'normal'
+
     Returns
     -------
     new_line : numpy array
@@ -136,11 +135,12 @@ def proposal(x, dim, logLmin, boundary_point, boundary, std, distribution):
     c = 0
 
     k_u = 1
-    k_n = 1
+    loop = it.cycle(np.arange(1.5,7.5,1.5))
+    k_n = np.log(dim+5)
     k_a = 1
     while True:
         new_line = np.zeros(dim+1, dtype=np.float64)
-
+        #k_n = next(loop)
         for i in range(len(new_line[:dim])):
 
             if distribution == 'uniform':
@@ -152,11 +152,6 @@ def proposal(x, dim, logLmin, boundary_point, boundary, std, distribution):
                 new_line[:dim][i] = np.random.normal(boundary_point[i], k_n*std)
                 while np.abs(new_line[:dim][i]) > boundary:
                     new_line[:dim][i] = np.random.normal(boundary_point[i], k_n*std)
-
-            if distribution == 'anglit':
-                new_line[:dim][i] = boundary_point[i] + anglit(scale=k_a*std).rvs()
-                while np.abs(new_line[:dim][i]) > boundary:
-                    new_line[:dim][i] = boundary_point[i] + anglit(scale=k_a*std).rvs()
 
         new_line[dim] = log_likelihood(new_line[:dim], dim, init=False)[0]
 
@@ -170,8 +165,9 @@ def proposal(x, dim, logLmin, boundary_point, boundary, std, distribution):
                 end = time.time()
                 t = end - start
                 break
-        if accepted != 0 and rejected != 0:
-            if accepted > rejected: std *= np.exp(1.0/accepted)
-            if accepted < rejected: std /= np.exp(1.0/rejected)
+        if distribution == 'uniform':
+            if accepted != 0 and rejected != 0:
+                if accepted > rejected: std *= np.exp(1.0/accepted)
+                if accepted < rejected: std /= np.exp(1.0/rejected)
 
     return new_line, t, accepted, rejected
