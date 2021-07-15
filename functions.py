@@ -1,6 +1,7 @@
 '''Functions to be used for the nested sampling algorithm (Skilling 2004)'''
 import numpy as np
 import matplotlib.pyplot as plt
+import time
 
 def log_likelihood(x, dim, init):
     ''' Return the logarithm of a N-dimensional gaussian likelihood.
@@ -97,3 +98,80 @@ def autocorrelation(x, max_lag, bootstrap=False):
     plt.show()
 
     return auto_corr
+
+def proposal(x, dim, logLmin, boundary_point, boundary, std, distribution):
+    ''' Sample a new object from the prior subject to the constrain L(x_new) > Lworst_old
+
+    Parameters
+    ----------
+    x : numpy array
+        Array (parameter, prior, likelihood) corresponding to the worst likelihood
+    dim : int
+        Dimension of the parameter space.
+    logLmin : float64
+        Worst likelihood, i.e. The third element of x
+    boundary_points : numpy array
+        Array of parameters corresponding to the worst likelihood computer at iteration
+        k of NS
+    std : float
+        Limits of the uniform distribution proposal or standard deviation of the normal/anglit
+        distribution. The name comes from the fact that it correspondsto the mean of standard
+        deviations of the points along the axis of the parameter space
+    distribution : string
+        Choose the distribution from which the new object should be sampled.
+        Available options are 'uniform', 'normal', 'anglit'.
+    Returns
+    -------
+    new_line : numpy array
+        New sampled object that satisfies the likelihood constrain
+    t : float
+        Seconds required for the resampling
+    accepted, rejected : int
+        Accepted/rejected number of points during the resampling
+    '''
+    start = time.time()
+    accepted = 0
+    rejected = 0
+    n = 0
+    c = 0
+
+    k_u = 1
+    k_n = 1
+    k_a = 1
+    while True:
+        new_line = np.zeros(dim+1, dtype=np.float64)
+
+        for i in range(len(new_line[:dim])):
+
+            if distribution == 'uniform':
+                new_line[:dim][i] = boundary_point[i] + np.random.uniform(-k_u*std, k_u*std)
+                while np.abs(new_line[:dim][i]) > boundary:
+                    new_line[:dim][i] = boundary_point[i] + np.random.uniform(-k_u*std, k_u*std)
+
+            if distribution == 'normal':
+                new_line[:dim][i] = np.random.normal(boundary_point[i], k_n*std)
+                while np.abs(new_line[:dim][i]) > boundary:
+                    new_line[:dim][i] = np.random.normal(boundary_point[i], k_n*std)
+
+            if distribution == 'anglit':
+                new_line[:dim][i] = boundary_point[i] + anglit(scale=k_a*std).rvs()
+                while np.abs(new_line[:dim][i]) > boundary:
+                    new_line[:dim][i] = boundary_point[i] + anglit(scale=k_a*std).rvs()
+
+        new_line[dim] = log_likelihood(new_line[:dim], dim, init=False)[0]
+
+        if new_line[dim] < logLmin:
+            rejected += 1
+        if new_line[dim] > logLmin:
+            n += 1
+            accepted += 1
+            boundary_point[:dim] = new_line[:dim]
+            if n > 10:
+                end = time.time()
+                t = end - start
+                break
+        if accepted != 0 and rejected != 0:
+            if accepted > rejected: std *= np.exp(1.0/accepted)
+            if accepted < rejected: std /= np.exp(1.0/rejected)
+
+    return new_line, t, accepted, rejected
