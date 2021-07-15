@@ -3,11 +3,13 @@ import matplotlib.pyplot as plt
 import argparse
 from tqdm import tqdm
 from scipy.stats import anglit
+import logging
 import time
-from functions import log_likelihood, log_prior, autocorrelation
+import itertools as it
+from functions import log_likelihood, autocorrelation #, log_prior
 
 
-def proposal(x, dim, logLmin, boundary_point, std, distribution):
+def proposal(x, dim, logLmin, boundary_point, boundary, std, distribution):
     ''' Sample a new object from the prior subject to the constrain L(x_new) > Lworst_old
 
     Parameters
@@ -41,36 +43,40 @@ def proposal(x, dim, logLmin, boundary_point, std, distribution):
     accepted = 0
     rejected = 0
     n = 0
-    step = 1
+    c = 0
+
+    k_u = 1 #1/np.log(np.sqrt(dim))
+    k_n = 1 #k_u/np.sqrt(12)
+    k_a = 1 #k_n
     while True:
-        n += 1
-        new_line = np.zeros(dim+2, dtype=np.float64)
-        k_u = 1.45/np.log(np.sqrt(dim))
-        k_n = 1
-        k_a = 1.45/np.log(np.sqrt(dim))
-
-        if distribution == 'uniform':
-            new_line[:dim] = boundary_point[:dim] + np.random.uniform(-k_u*std, k_u*std, size=dim)
-
+        new_line = np.zeros(dim+1, dtype=np.float64)
 
         for i in range(len(new_line[:dim])):
+
+            if distribution == 'uniform':
+                new_line[:dim][i] = boundary_point[i] + np.random.uniform(-k_u*std, k_u*std)
+                while np.abs(new_line[:dim][i]) > boundary:
+                    new_line[:dim][i] = boundary_point[i] + np.random.uniform(-k_u*std, k_u*std)
+
             if distribution == 'normal':
                 new_line[:dim][i] = np.random.normal(boundary_point[i], k_n*std)
-                while np.abs(new_line[:dim][i]) > 5.:
+                while np.abs(new_line[:dim][i]) > boundary:
                     new_line[:dim][i] = np.random.normal(boundary_point[i], k_n*std)
 
             if distribution == 'anglit':
                 new_line[:dim][i] = boundary_point[i] + anglit(scale=k_a*std).rvs()
-                while np.abs(new_line[:dim][i]) > 5.:
+                while np.abs(new_line[:dim][i]) > boundary:
                     new_line[:dim][i] = boundary_point[i] + anglit(scale=k_a*std).rvs()
 
-        new_log_prior = log_prior(new_line[:dim], dim)
-        new_line[dim] = new_log_prior[0]
-        new_line[dim+1] = log_likelihood(new_line[:dim], dim, init=False)[0]
+        #new_log_prior = log_prior(new_line[:dim], dim, init=False)
+        #new_line[dim] = new_log_prior[0]
+        #new_line[dim+1] = log_likelihood(new_line[:dim], dim, init=False)[0]
+        new_line[dim] = log_likelihood(new_line[:dim], dim, init=False)[0]
 
-        if new_line[dim+1] < logLmin:
+        if new_line[dim] < logLmin:
             rejected += 1
-        if new_line[dim+1] > logLmin:
+        if new_line[dim] > logLmin:
+            n += 1
             accepted += 1
             boundary_point[:dim] = new_line[:dim]
             if n > 10:
@@ -83,7 +89,7 @@ def proposal(x, dim, logLmin, boundary_point, std, distribution):
 
     return new_line, t, accepted, rejected
 
-def nested_samplig(live_points, dim, proposal_distribution, verbose=False):
+def nested_samplig(live_points, dim, boundary, proposal_distribution, verbose=False):
     '''Nested Sampling by Skilling (2004)
 
     Parameters
@@ -106,10 +112,11 @@ def nested_samplig(live_points, dim, proposal_distribution, verbose=False):
 
     logZ = -np.inf
     logH = -np.inf
-    parameters = np.random.uniform(-5, 5, size=(N, dim))
+    parameters = np.random.uniform(-boundary, boundary, size=(N, dim))
     live_points[:, :dim] = parameters
-    live_points[:, dim] = log_prior(parameters, dim)
-    live_points[:, dim+1] = log_likelihood(parameters, dim, init=True)
+    #live_points[:, dim] = log_prior(parameters, dim, init=True)
+    #live_points[:, dim+1] = log_likelihood(parameters, dim, init=True)
+    live_points[:, dim] = log_likelihood(parameters, dim, init=True)
     logwidth = np.log(1.0 - np.exp(-1.0/N))
 
     steps = 0
@@ -119,8 +126,8 @@ def nested_samplig(live_points, dim, proposal_distribution, verbose=False):
         steps += 1
         prior_mass.append(logwidth)
 
-        Lw_idx = np.argmin(live_points[:, dim+1])
-        logLw = live_points[Lw_idx, dim+1]
+        Lw_idx = np.argmin(live_points[:, dim])
+        logLw = live_points[Lw_idx, dim]
         logL_worst.append(logLw)
 
         logZnew = np.logaddexp(logZ, logwidth+logLw)
@@ -128,20 +135,21 @@ def nested_samplig(live_points, dim, proposal_distribution, verbose=False):
 
         logH = np.logaddexp(logH, logwidth + logLw - logZ + np.log(logLw - logZ))
         logH_list.append(logH)
-        error = np.sqrt(np.exp(logH)/steps)
+        error = np.sqrt(np.exp(logH)/N)
         Zlog[0].append(np.exp(logZ + error))
         Zlog[1].append(np.exp(logZ - error))
 
         survivors = np.delete(live_points, Lw_idx, axis=0)
+        #std = np.std(survivors[:dim])
         std = np.mean(np.std(survivors[:dim], axis = 0))
         boundary_point = live_points[Lw_idx,:dim]
 
         area.append(logwidth+logLw)
 
         if verbose:
-            print("i:{0} d={1} log(Lw)={2:.2f} term={3:.2f} log(Z)={4:.2f} std={5:.2f} e={6:.2f} H={7:.2f} prop={8}".format(steps, dim, logLw, (max(live_points[:,dim+1]) - steps/N - f - logZ), logZ, std, error, np.exp(logH), proposal_distribution))
+            print("i:{0} d={1} log(Lw)={2:.2f} term={3:.2f} log(Z)={4:.2f} std={5:.2f} e={6:.2f} H={7:.2f} prop={8}".format(steps, dim, logLw, (max(live_points[:,dim]) - steps/N - f - logZ), logZ, std, error, np.exp(logH), proposal_distribution))
 
-        new_sample, t, acc, rej = proposal(live_points[Lw_idx], dim, logLw, boundary_point, std, proposal_distribution)
+        new_sample, t, acc, rej = proposal(live_points[Lw_idx], dim, logLw, boundary_point, boundary, std, proposal_distribution)
         accepted += acc
         rejected += rej
         T.append(t)
@@ -149,10 +157,12 @@ def nested_samplig(live_points, dim, proposal_distribution, verbose=False):
         live_points[Lw_idx] = new_sample
         logwidth -= 1.0/N
 
-        if max(live_points[:,dim+1]) - (steps+steps**0.5)/N < f + logZ:
+        #if max(live_points[:,dim+1]) - (steps+steps**0.5)/N < f + logZ:
+        if max(live_points[:,dim]) - (steps+steps**0.5)/N < f + logZ:
             break
 
-    final_term = np.log(np.exp(live_points[:,dim+1]).sum()*np.exp(-steps/N)/N)
+    #final_term = np.log(np.exp(live_points[:,dim+1]).sum()*np.exp(-steps/N)/N)
+    final_term = np.log(np.exp(live_points[:,dim]).sum()*np.exp(-steps/N)/N)
     logZ = np.logaddexp(logZ, final_term)
     area = np.exp(area)
     logL_worst = np.exp(logL_worst)
@@ -193,11 +203,12 @@ if __name__ == "__main__":
     if args.proposal == 1: prop = 'normal'
     if args.proposal == 2: prop = 'anglit'
 
-    for d in tqdm(range(2,dim+1,3)):
+    for d in tqdm(range(dim,dim+1)):
         t_start = time.time()
-        live_points = np.zeros((n, d+2), dtype=np.float64)
+        #live_points = np.zeros((n, d+2), dtype=np.float64)
+        live_points = np.zeros((n, d+1), dtype=np.float64)
 
-        area_plot, evidence_plot, likelihood_worst, prior_mass, evidence, t_resample, steps, acc, rej, logH = nested_samplig(live_points, d, proposal_distribution = prop, verbose=args.verbose)
+        area_plot, evidence_plot, likelihood_worst, prior_mass, evidence, t_resample, steps, acc, rej, logH = nested_samplig(live_points, d, boundary, proposal_distribution = prop, verbose=args.verbose)
 
         t_end = time.time()
         t_total = t_end - t_start
@@ -242,12 +253,13 @@ if __name__ == "__main__":
             file.write(f'''============ SUMMARY ============
                     \n Dimension of the integral = {d}
                     \n Number of steps required = {steps}
-                    \n Evidence = {evidence:.2f} +- {np.sqrt(np.exp(logH)/steps)}
-                    \n Information = {np.exp(logH)}
-                    \n Maximum of the likelihood = {(2*boundary/np.sqrt(2*np.pi))**d:.2f}
+                    \n Evidence = {evidence:.2f} +- {np.sqrt(np.exp(logH)/steps)[-1]:.2f}
+                    \n Theoretical value = {d*np.log(10)}
+                    \n Information = {np.exp(logH)[-1]:.2f}
+                    \n Maximum of the likelihood = {(1/np.sqrt(2*np.pi))**d:.2f}
                     \n Proposal chosen: {prop}
                     \n Last area value = {area_plot[-1]:.2f}
-                    \n Last worst Likelihood = {likelihood_worst[-1]}
+                    \n Last worst Likelihood = {likelihood_worst[-1]:.2f}
                     \n Accepted and rejected points: {acc}, {rej}
                     \n Mass prior sum = {np.exp(prior_mass).sum():.2f}
                     \n Total time: {end-start:.2f} s

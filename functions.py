@@ -2,7 +2,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-def log_likelihood(x, dim, init, boundary=5):
+def log_likelihood(x, dim, init):
     ''' Return the logarithm of a N-dimensional gaussian likelihood.
     It is set in such a way that the integral of the product with the
     prior over the parameter space is 1.
@@ -32,44 +32,13 @@ def log_likelihood(x, dim, init, boundary=5):
 
     if init:
         for v in x:
-            exp = v**2
-            L = dim*np.log(2*boundary) - 0.5*dim*np.log(2*np.pi) - 0.5*exp.sum()
+            L = - 0.5*dim*np.log(2*np.pi) - 0.5*v.T.dot(v)
             likelihood.append(L)
     else:
-        L = dim*np.log(2*boundary) - 0.5*dim*np.log(2*np.pi) - 0.5*x.T.dot(x)
+        L = - 0.5*dim*np.log(2*np.pi) - 0.5*x.T.dot(x)
         likelihood.append(L)
 
     return likelihood
-
-def log_prior(x, dim, boundary=5):
-    '''Return a uniform prior for each value of the N-dimension vector x.
-    It is set in such a way that the integral of the product with the
-    likelihood over the parameter space is 1.
-
-    Parameters
-    -----------
-    x : numpy.array
-        A random N dimensional vector.
-    dim : int
-        Dimension of the parameter space.
-    boundary : init, optional
-        Boundary of the parameter space. The default is 5
-
-    Retruns
-    -------
-    prior : list
-        List of prior values.
-    '''
-
-    prior = []
-    mod = np.sqrt(dim) * boundary
-    for v in x:
-        if np.sqrt((v*v).sum()) > mod:
-            prior.append(-np.inf)
-        else:
-            prior.append(-dim*np.log(2*boundary))
-
-    return prior
 
 
 def autocorrelation(x, max_lag, bootstrap=False):
