@@ -133,20 +133,16 @@ def proposal(x, dim, logLmin, boundary_point, boundary, std, distribution):
     rejected = 0
     n = 0
     c = 0
-
-    k_u = 1
-    loop = it.cycle(np.arange(1.5,7.5,1.5))
     k_n = np.log(dim+5)
-    k_a = 1
+
     while True:
         new_line = np.zeros(dim+1, dtype=np.float64)
-        #k_n = next(loop)
         for i in range(len(new_line[:dim])):
 
             if distribution == 'uniform':
-                new_line[:dim][i] = boundary_point[i] + np.random.uniform(-k_u*std, k_u*std)
+                new_line[:dim][i] = boundary_point[i] + np.random.uniform(-std, std)
                 while np.abs(new_line[:dim][i]) > boundary:
-                    new_line[:dim][i] = boundary_point[i] + np.random.uniform(-k_u*std, k_u*std)
+                    new_line[:dim][i] = boundary_point[i] + np.random.uniform(-std, std)
 
             if distribution == 'normal':
                 new_line[:dim][i] = np.random.normal(boundary_point[i], k_n*std)
