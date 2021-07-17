@@ -133,7 +133,7 @@ def proposal(x, dim, logLmin, boundary_point, boundary, std, distribution):
     rejected = 0
     n = 0
     c = 0
-    k_n = np.log(dim+5)
+    k_n = 1/(2*np.log(dim+1))
 
     while True:
         new_line = np.zeros(dim+1, dtype=np.float64)

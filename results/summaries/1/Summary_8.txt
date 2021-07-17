@@ -2,13 +2,13 @@
                     
  Dimension of the integral = 8
                     
- Number of steps required = 28792
+ Number of steps required = 15059
                     
- Evidence = -17.25 +- 0.39
+ Evidence = -18.02 +- 0.51
                     
- Theoretical value = 18.420680743952367
+ Theoretical value = -18.420680743952367
                     
- Information = 301.74
+ Information = 263.43
                     
  Maximum of the likelihood = 0.00
                     
@@ -16,12 +16,12 @@
                     
  Last area value = 0.00
                     
- Last worst Likelihood = -7.77
+ Last worst Likelihood = -8.03
                     
- Accepted and rejected points: 316712, 7695232
+ Accepted and rejected points: 165649, 72517
                     
  Mass prior sum = 1.00
                     
- Total time: 374.44 s
+ Total time: 10.53 s
                     
 =================================

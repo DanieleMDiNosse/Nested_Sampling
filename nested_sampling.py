@@ -160,7 +160,7 @@ if __name__ == "__main__":
                     \n Dimension of the integral = {d}
                     \n Number of steps required = {steps}
                     \n Evidence = {log_evidence:.2f} +- {error:.2f}
-                    \n Theoretical value = {d*np.log(2*boundary)}
+                    \n Theoretical value = -{d*np.log(2*boundary)}
                     \n Information = {np.exp(logH)[-1]:.2f}
                     \n Maximum of the likelihood = {(1/np.sqrt(2*np.pi))**d:.2f}
                     \n Proposal chosen: {prop}
