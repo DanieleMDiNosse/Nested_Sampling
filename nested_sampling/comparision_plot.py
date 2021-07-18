@@ -65,4 +65,4 @@ if __name__ == "__main__":
     proposal = [0,1]
     folder_values_path = 'results/'
 
-    comparision_plot(folder_values_path, range_dim, true_values, proposal)
+    comparision_plot(range_dim, true_values)
