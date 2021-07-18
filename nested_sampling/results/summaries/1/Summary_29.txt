@@ -10,7 +10,7 @@
                     
  Information = 1026.98
                     
- Maximum of the likelihood = 0.00
+ Maximum of the likelihood = -26.65
                     
  Proposal chosen: normal
                     
@@ -22,6 +22,6 @@
                     
  Mass prior sum = 1.00
                     
- Total time: 86.84 s
+ Total time: 80.89 s
                     
 =================================
