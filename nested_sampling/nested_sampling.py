@@ -116,7 +116,7 @@ if __name__ == "__main__":
 
     time_tot = []; log_evidence_values = []; error_values = []
 
-    range_dim = np.arange(2,dim+1,3)
+    range_dim = np.arange(20,dim+1)
 
     true_values = [-d*np.log(2*boundary) for d in range_dim]
 
@@ -154,6 +154,13 @@ if __name__ == "__main__":
             plt.ylabel('Resampling time')
             plt.title('Time for resampling')
             plt.savefig(f'results/images/{args.proposal}/resampling_time_{d}.png')
+
+            plt.figure()
+            plt.plot(prior_mass, logH, 'k')
+            plt.xlabel('Prior mass (log)')
+            plt.ylabel('logH')
+            plt.title('Information')
+            plt.savefig(f'results/images/{args.proposal}/information_{d}.png')
             plt.close('all')
 
         with open(f'results/summaries/{args.proposal}/Summary_{d}.txt', 'w', encoding='utf-8') as file:
@@ -163,7 +170,7 @@ if __name__ == "__main__":
                     \n Evidence = {log_evidence:.2f} +- {error:.2f}
                     \n Theoretical value = -{d*np.log(2*boundary)}
                     \n Information = {np.exp(logH)[-1]:.2f}
-                    \n Maximum of the likelihood = {(1/np.sqrt(2*np.pi))**d:.2f}
+                    \n Maximum of the likelihood = {-d*np.log(np.sqrt(2*np.pi)):.2f}
                     \n Proposal chosen: {prop}
                     \n Last area value = {area_plot[-1]:.2f}
                     \n Last worst Likelihood = {likelihood_worst[-1]:.2f}
