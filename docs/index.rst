@@ -5,6 +5,7 @@
 
 Welcome to Nested Sampling Implementation's documentation!
 ==========================================================
+Nested Sampling implementation for the computation of a N-dim gaussian integral.
 
 .. toctree::
    :maxdepth: 2
