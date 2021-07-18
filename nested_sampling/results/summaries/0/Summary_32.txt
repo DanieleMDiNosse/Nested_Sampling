@@ -1,0 +1,27 @@
+============ SUMMARY ============
+                    
+ Dimension of the integral = 32
+                    
+ Number of steps required = 38365
+                    
+ Evidence = -66.91 +- 1.04
+                    
+ Theoretical value = -73.68272297580947
+                    
+ Information = 1088.42
+                    
+ Maximum of the likelihood = 0.00
+                    
+ Proposal chosen: uniform
+                    
+ Last area value = 0.00
+                    
+ Last worst Likelihood = -34.69
+                    
+ Accepted and rejected points: 422015, 934035
+                    
+ Mass prior sum = 1.00
+                    
+ Total time: 172.69 s
+                    
+=================================
