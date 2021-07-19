@@ -1,5 +1,6 @@
 '''Python implementation of Nested Sampling (Skilling 2004) in order to compute the integral of
 a N-dim gaussian'''
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -25,6 +26,31 @@ def nested_samplig(live_points, dim, boundary, proposal_distribution, verbose=Fa
         Choose between uniform or normal resample distribution
     verbose : bool
         Print some information. The default is False
+
+    Returns
+    -------
+    area : numpy array
+        Array of the area elements accumulated during iterations
+    Zlog : list
+        List of two list: logZ + error and logZ - error. They are used for plots
+    logL_worst : list
+        List of the worst likelihoods obtained during iterations. They are the values that
+        define the profile of the likelihood used in the actual computation of the Riemann sum
+    prior_mass : list
+        List of the value of the prior mass accumulated during the iteration
+    T : list
+        List of times required for sample the new objects with the proposal function
+    steps : int
+        Number of steps required
+    accepted, rejected : int
+        Accepted and rejected points over the whole NS run. They are the sum of all the accepted/rejected
+        points during the sampling of the new object in the proposal function
+    logH_list : list
+        List of information values accumulated during iterations
+    error : int
+        Estimated error on the evidence. It is a first approximation based on the standard deviation
+        of the prior mass values (the one found statistically, see Nested Sampling (Skilling 2004))
+
         '''
 
     N = live_points.shape[0]
