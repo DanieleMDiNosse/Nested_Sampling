@@ -1,3 +1,5 @@
+'''Python implementation of Nested Sampling (Skilling 2004) in order to compute the integral of
+a N-dim gaussian'''
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
