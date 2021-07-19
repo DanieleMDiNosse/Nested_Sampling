@@ -1,27 +1,16 @@
+.. _nested_sampling:
+
 Nested Sampling Implementation package
 ======================================
 
+Subpackages
+-----------
 
-nested_sampling.nested_sampling module
-----------------------------------------
+.. toctree::
+   :maxdepth: 4
 
-.. automodule:: nested_sampling.nested_sampling
-   :members:
-   :undoc-members:
-   :show-inheritance:
+   nested_sampling.nested_sampling
+   nested_sampling.functions
+   nested_sampling.comparision_plot
 
-nested_sampling.functions module
-----------------------------------------
 
-.. automodule:: nested_sampling.functions
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-nested_sampling.comparision_plot module
-----------------------------------------
-
-.. automodule:: nested_sampling.comparision_plot
-   :members:
-   :undoc-members:
-   :show-inheritance:
