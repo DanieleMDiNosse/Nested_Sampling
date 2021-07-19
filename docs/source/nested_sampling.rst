@@ -2,10 +2,10 @@ nested_sampling package
 ======================================
 
 
-nested_sampling.nested\_sampling module
+nested_sampling.nested_sampling module
 ----------------------------------------
 
-.. automodule:: nested\_sampling.nested\_sampling
+.. automodule:: nested_sampling.nested_sampling
    :members:
    :undoc-members:
    :show-inheritance:
