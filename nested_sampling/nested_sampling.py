@@ -65,7 +65,7 @@ def nested_samplig(live_points, dim, boundary, proposal_distribution, verbose=Fa
         if verbose:
             print("i:{0} d={1} log(Lw)={2:.2f} term={3:.2f} log(Z)={4:.2f} std={5:.2f} e={6:.2f} H={7:.2f} prop={8}".format(steps, dim, logLw, (max(live_points[:,dim]) - steps/N - f - logZ), logZ, std, error, np.exp(logH), proposal_distribution))
 
-        new_sample, t, acc, rej = proposal(live_points[Lw_idx], dim, logLw, boundary_point, boundary, std, proposal_distribution)
+        new_sample, t, acc, rej = proposal(live_points[Lw_idx], dim, boundary, std, proposal_distribution)
         accepted += acc
         rejected += rej
         T.append(t)
@@ -116,7 +116,7 @@ if __name__ == "__main__":
 
     time_tot = []; log_evidence_values = []; error_values = []
 
-    range_dim = np.arange(20,dim+1)
+    range_dim = np.arange(2,dim+1)
 
     true_values = [-d*np.log(2*boundary) for d in range_dim]
 

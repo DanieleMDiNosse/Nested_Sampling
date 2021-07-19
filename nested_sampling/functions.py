@@ -100,7 +100,7 @@ def autocorrelation(x, max_lag, bootstrap=False):
 
     return auto_corr
 
-def proposal(x, dim, logLmin, boundary_point, boundary, std, distribution):
+def proposal(x, dim, boundary, std, distribution):
     ''' Sample a new object from the prior subject to the constrain L(x_new) > Lworst_old
 
     Parameters
@@ -128,6 +128,10 @@ def proposal(x, dim, logLmin, boundary_point, boundary, std, distribution):
     accepted, rejected : int
         Accepted/rejected number of points during the resampling
     '''
+
+    logLmin = x[dim]
+    boundary_point = x[:dim]
+
     start = time.time()
     accepted = 0
     rejected = 0
