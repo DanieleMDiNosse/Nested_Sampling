@@ -1,5 +1,4 @@
-'''Python implementation of Nested Sampling (Skilling 2004) in order to compute the integral of
-a N-dim gaussian'''
+'''Python implementation of Nested Sampling (Skilling 2004) in order to compute the integral of a N-dim gaussian'''
 
 import numpy as np
 import pandas as pd
@@ -107,8 +106,6 @@ def nested_samplig(live_points, dim, boundary, proposal_distribution, verbose=Fa
     final_term = np.log(np.exp(live_points[:,dim]).sum()*np.exp(-steps/N)/N)
     logZ = np.logaddexp(logZ, final_term)
     area = np.exp(area)
-    logL_worst = logL_worst
-    logZ = logZ
 
     return area, Zlog, logL_worst, prior_mass, logZ, T, steps, accepted, rejected, logH_list, error
 
