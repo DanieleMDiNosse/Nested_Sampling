@@ -14,6 +14,7 @@ Contents:
    :maxdepth: 4
 
    source/nested_sampling
+   source/guidelines
 
 
 
