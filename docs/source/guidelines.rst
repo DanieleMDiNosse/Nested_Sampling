@@ -44,7 +44,7 @@ where :math: '\xi' is called the prior mass and it represents the cumulative pri
 It is clear the meaning of the prior mass looking at the following one dimension uniform prior and gaussian likelihood
 
 .. image:: images/priormass.jpg
-   :width: 150pt
+   :width: 300pt
 
 If we are able to find the transformation that maps the prior into the prior mass we will end up with a 1-dim integral over the interval [0,1] insted of an N-dim integral over the entire parameter space. The problem is hugely reduced in terms of computationally complexity
 
@@ -54,9 +54,18 @@ If we are able to find the transformation that maps the prior into the prior mas
 The problem is that we do not know this transformation, but the nested sampling finds it in a statistical way, reasoning on just the fact that the likelihood is a decreasing function of the prior mass. For more details, check the original paper by Skilling (the one published in 2004 or the other in 2006. The book of Sivia and Skilling, Data Analysis, has a great treatement of the subject, too.), but to get a general idea of what you have to do, consider the following image that describes in a schematic way the major steps of the algorithm
 
 .. image:: images/algorithm.jpg
-    :width: 150pt
+    :width: 450pt
 
 
 Problems I encountered
 ----------------------
-The main problems I encountered are of two forms (as usually!): technical problems and conceptual problems. The formers are related to my python experience in programming that is still pretty low, the latters are due to the tricky part of the algorithm: the replacing of the worst object with a new one satifying the constraint on the likelihood.
+The main problems I encountered are of two forms (as usually!): technical problems and conceptual problems. The formers are related to my python experience in programming that is still pretty low, the latters are due to the tricky part of the algorithm: the replacing of the worst object with a new one satifying the constraint on the likelihood. I had to find a way to tune the average jump of the walker in the Markov Chain (started from the worst object) in such a way to have a value that was neither too big nor too small. Infact, it it is too big, the contraint on the likelihood stops the majority of the jumps, slowing down the algorithm too much. On the other hand, if it is too small, the walker is not able to reach the bulk of the posterior mass in the domain of the prior mass (note that this fraction of the prior mass is the one which has the biggest contribute to the evidence) and you end up with a sub-estimate of Z.
+To solve this problem I adopted three ways: at first, I set the average jump (the one called std in the code that you can find in nested_sampling function and proposal function) as the mean of the standard deviations over the axis of the parameter space. In this way I grab the average distances between points. Then, for the normal proposal distribution, I tune a proportionality constant to this std in such a way that with the rising of the dimension it becames smaller and smaller. To be clear, what I do is to set the standard deviation of the normal distribution centered in the worst object as
+
+.. math::
+    \sigma = \k_n std = \frac{1}{(2log(d+1))} where d=dimension
+
+Insted, for the uniform proposal distribution, I try to keep the acceptance ratio (accepted points/rejected points) to 50%, multipling of dividing std by
+
+.. math::
+    \\ std \implies std \times e^{\frac{1}{#accepted}} if accepted points > rejected points \\ std \implies std \times e^{\frac{1}{#rejected}} if accepted points < rejected points
