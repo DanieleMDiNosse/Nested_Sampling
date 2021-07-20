@@ -28,15 +28,10 @@ def log_likelihood(x, dim, init):
         Likelihood values or singole likelihood value
     '''
 
-    likelihood = []
-
     if init:
-        for v in x:
-            L = - 0.5*dim*np.log(2*np.pi) - 0.5*v.T.dot(v)
-            likelihood.append(L)
+        likelihood = [- 0.5*dim*np.log(2*np.pi) - 0.5*v.T.dot(v) for v in x]
     else:
-        L = - 0.5*dim*np.log(2*np.pi) - 0.5*x.T.dot(x)
-        likelihood.append(L)
+        likelihood = - 0.5*dim*np.log(2*np.pi) - 0.5*x.T.dot(x)
 
     return likelihood
 
@@ -152,7 +147,7 @@ def proposal(x, dim, boundary, std, distribution):
                 while np.abs(new_line[:dim][i]) > boundary:
                     new_line[:dim][i] = np.random.normal(boundary_point[i], k_n*std)
 
-        new_line[dim] = log_likelihood(new_line[:dim], dim, init=False)[0]
+        new_line[dim] = log_likelihood(new_line[:dim], dim, init=False)
 
         if new_line[dim] < logLmin:
             rejected += 1
