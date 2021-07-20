@@ -43,9 +43,8 @@ where :math:'\xi' is called the prior mass and it represents the cumulative prio
 
 It is clear the meaning of the prior mass looking at the following one dimension uniform prior and gaussian likelihood
 
-.. image::
-    images/priormass.jpg
-    :width: 150pt
+.. image:: images/priormass.jpg
+   :width: 150pt
 
 If we are able to find the transformation that maps the prior into the prior mass we will end up with a 1-dim integral over the interval [0,1] insted of an N-dim integral over the entire parameter space. The problem is hugely reduced in terms of computationally complexity
 
