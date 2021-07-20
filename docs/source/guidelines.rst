@@ -68,4 +68,4 @@ To solve this problem I adopted three ways: at first, I set the average jump (th
 Insted, for the uniform proposal distribution, I try to keep the acceptance ratio (accepted points/rejected points) to 50%, multipling of dividing std by
 
 .. math::
-    \\ std \implies std \times e^{\frac{1}{#accepted}} if accepted points > rejected points \\ std \implies std \times e^{\frac{1}{#rejected}} if accepted points < rejected points
+    \\ std \implies std \times e^{\frac{1}{numaccepted}} if accepted points > rejected points \\ std \implies std \times e^{\frac{1}{numrejected}} if accepted points < rejected points
