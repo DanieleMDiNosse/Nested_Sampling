@@ -5,10 +5,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import argparse
 from tqdm import tqdm
-from scipy.stats import anglit
 import logging
 import time
-from functions import log_likelihood, autocorrelation, proposal
+from nested_sampling.functions import log_likelihood, autocorrelation, proposal
 
 def nested_samplig(live_points, dim, boundary, proposal_distribution, verbose=False):
     '''Nested Sampling by Skilling (2004)
