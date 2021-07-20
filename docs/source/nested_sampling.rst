@@ -1,16 +1,26 @@
-.. _nested_sampling:
+nested\_sampling.ns\_gaussian module
+----------------------------------------
 
-Nested Sampling Implementation package
-======================================
+.. automodule:: nested_sampling.ns_gaussian
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
-Subpackages
------------
+nested\_sampling.functions module
+----------------------------------------
 
-.. toctree::
-   :maxdepth: 4
+.. automodule:: nested_sampling.functions
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
-   nested_sampling.ns_gaussian
-   nested_sampling.functions
-   nested_sampling.comparision_plot
+nested\_sampling.comparision\_plot module
+----------------------------------------
+
+.. automodule:: nested_sampling.comparision_plot
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 
 

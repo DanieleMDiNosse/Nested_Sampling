@@ -22,6 +22,6 @@
                     
  Mass prior sum = 1.00
                     
- Total time: 3.04 s
+ Total time: 3.61 s
                     
 =================================
