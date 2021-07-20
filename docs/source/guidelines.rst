@@ -11,7 +11,7 @@ Nested Sampling is an algorithm aimed to evaluate the evidence in the Bayes' The
 where H is the hypothesis that explain some phenomenon, D are the data registered and I is the background information. Keep in mind that usually we can not compute directly the sum over all the possibile hypothesis that explain our phenomenon because they aren't mutually exclusive (and we don't have the power to enumerate all of them!). Using the usual names that can be found in the literature
 
 .. math::
-    Posterior=\frac{\Pr ior\times Likelihood}{Evidence}
+    Posterior=\frac{\Prior\times Likelihood}{Evidence}
 
 Evidence is one of the most important quantites of the Bayes Probability Theory since it enters in the computattion of the so-called Odds Ratio between two competing hypothesis H1 and H2.
 
@@ -35,3 +35,21 @@ The main idea to image to change variable in such a way that
 
 .. math::
     \pi(\vec{\theta})d\vec{\theta}=d\xi
+
+where :math:'\xi' is called the prior mass and it represents the cumulative prior over a specific level of the likelihood. It is defined by
+
+.. math::
+    \xi(\lambda) = \underset{L(\vec{\theta})>\lambda} {\int \int ... \int}\pi(\vec{\theta})d\vec{\theta}
+
+It is clear the meaning of the prior mass looking at the following one dimension uniform prior and gaussian likelihood
+
+.. image::
+    images/priormass.jpg
+    :width: 150pt
+
+If we are able to find the transformation that maps the prior into the prior mass we will end up with a 1-dim integral over the interval [0,1] insted of an N-dim integral over the entire parameter space. The problem is hugely reduced in terms of computationally complexity
+
+.. math::
+    Z=\int_0^1L(\xi)d\xi \approx \sum_i^{ }L_i\Delta\xi_i
+
+The problem is that we do not know this transformation, but the nested sampling finds it in a statistical way, reasoning on just the fact that the likelihood is a decreasing function of the prior mass. For more details, check the original paper by Skilling (the one published in 2004 or the other in 2006. The book of Sivia and Skilling, Data Analysis, has a great treatement of the subject, too.)
