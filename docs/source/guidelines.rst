@@ -11,7 +11,7 @@ Nested Sampling is an algorithm aimed to evaluate the evidence in the Bayes' The
 where H is the hypothesis that explain some phenomenon, D are the data registered and I is the background information. Keep in mind that usually we can not compute directly the sum over all the possibile hypothesis that explain our phenomenon because they aren't mutually exclusive (and we don't have the power to enumerate all of them!). Using the usual names that can be found in the literature
 
 .. math::
-    Posterior=\frac{ \Prior \times Likelihood}{Evidence}
+    Posterior=\frac{ Prior \times Likelihood}{Evidence}
 
 Evidence is one of the most important quantites of the Bayes Probability Theory since it enters in the computattion of the so-called Odds Ratio between two competing hypothesis H1 and H2.
 
@@ -63,7 +63,7 @@ The main problems I encountered are of two forms (as usually!): technical proble
 To solve this problem I adopted three ways: at first, I set the average jump (the one called std in the code that you can find in nested_sampling function and proposal function) as the mean of the standard deviations over the axis of the parameter space. In this way I grab the average distances between points. Then, for the normal proposal distribution, I tune a proportionality constant to this std in such a way that with the rising of the dimension it becames smaller and smaller. To be clear, what I do is to set the standard deviation of the normal distribution centered in the worst object as
 
 .. math::
-    \sigma = \k_n std = \frac{1}{(2log(d+1))} where d=dimension
+    \sigma = k_n std = \frac{1}{(2log(d+1))} where d=dimension
 
 Insted, for the uniform proposal distribution, I try to keep the acceptance ratio (accepted points/rejected points) to 50%, multipling of dividing std by
 
