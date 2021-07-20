@@ -53,7 +53,7 @@ If we are able to find the transformation that maps the prior into the prior mas
 
 The problem is that we do not know this transformation, but the nested sampling finds it in a statistical way, reasoning on just the fact that the likelihood is a decreasing function of the prior mass. For more details, check the original paper by Skilling (the one published in 2004 or the other in 2006. The book of Sivia and Skilling, Data Analysis, has a great treatement of the subject, too.), but to get a general idea of what you have to do, consider the following image that describes in a schematic way the major steps of the algorithm
 
-.. image:: algorithm.jpg
+.. image:: images/algorithm.jpg
     :width: 150pt
 
 
