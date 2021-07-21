@@ -58,7 +58,7 @@ The problem is that we do not know this transformation, but the nested sampling 
 
 Termination condition
 ---------------------
-What is this termination condition? Well, we can define it by looking at the typical behaviour of the value of the area element .. math:: L^* \Delta \xi
+What is this termination condition? Well, we can define it by looking at the typical behaviour of the value of the area element :math: `L^* \Delta \xi`
 
 .. image:: images/areadynamics.jpg
     :width: 450pt
