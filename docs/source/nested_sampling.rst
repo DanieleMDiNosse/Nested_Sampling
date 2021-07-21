@@ -6,11 +6,11 @@ Here are listed all the modules that can be found in my little package about Nas
 
 
 .. note::
-   To use the package, go to Nested Sampling directory where there is setup.py and run
+   To use the package, one you have clones the repository, go to Nested Sampling directory where there is setup.py and run
 
    .. code-block:: python
 
-      python <module_name> -h
+      python install .
 
 
 Modules
