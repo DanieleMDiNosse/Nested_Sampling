@@ -101,6 +101,8 @@ Instead, for the uniform proposal distribution, I try to keep the acceptance rat
 .. math::
     \\ std \implies std \times exp(\frac{1}{numaccepted}) \quad if \quad  accepted \quad points > rejected \quad points \\ std \implies std \times exp(\frac{1}{numrejected}) if \quad accepted \quad points < rejected \quad points
 
+Of course these are not the best or unique ways to handle the problem of tuning the parameters of the proposal distribution, but it is what I have done.
+
 .. warning::
     We know the theoretical result of the integral: it is minus the logarithm of the volume of the hypercube on which we are integrating
 
