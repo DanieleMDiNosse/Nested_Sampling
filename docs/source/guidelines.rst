@@ -18,7 +18,7 @@ Evidence is one of the most important quantites of the Bayes Probability Theory 
 .. math::
     \frac{P(H_1|DI)}{P(H_2|DI)}=\frac{P(H_1|I)}{P(H_2|I)}\frac{P(D|H_1I)}{P(D|H_2I)}=\Pr ior\ Odds\times Bayes\ Factor
 
-Odds Ratio reduces to the Bayes Factor when we do not have any prior information that can favors one hypothesis over the other (we have to be fair). Then, writing the Bayes Theorem for the set of parameters on which :math: `H1` and :math: `H2` depend, Bayes Factor becames the ratio between the evidence of the two set of parameters (note that the integrals are actually the ratio of the likelihoods by marginalization)
+Odds Ratio reduces to the Bayes Factor when we do not have any prior information that can favors one hypothesis over the other (we have to be fair). Then, writing the Bayes Theorem for the set of parameters on which :math:`H1` and :math:`H2` depend, Bayes Factor becames the ratio between the evidence of the two set of parameters (note that the integrals are actually the ratio of the likelihoods by marginalization)
 
 .. math::
     B_{12}=\frac{\int_{\Theta_1}^{ }d\vec{\theta_1}P(\vec{\theta_1}|H_1I)P(D|\vec{\theta_1}H_1I)}{\int_{\Theta_2}^{ }d\vec{\theta_2}P(\vec{\theta_2}|H_2I)P(D|\vec{\theta_2}H_2I)}
@@ -36,7 +36,7 @@ The main idea to image to change variable in such a way that
 .. math::
     \pi(\vec{\theta})d\vec{\theta}=d\xi
 
-where :math: `\xi` is called the prior mass and it represents the cumulative prior over a specific level of the likelihood. It is defined by
+where :math:`\xi` is called the prior mass and it represents the cumulative prior over a specific level of the likelihood. It is defined by
 
 .. math::
     \xi(\lambda) = \underset{L(\vec{\theta})>\lambda} {\int \int ... \int}\pi(\vec{\theta})d\vec{\theta}
@@ -54,30 +54,31 @@ If we are able to find the transformation that maps the prior into the prior mas
 The problem is that we do not know this transformation, but the nested sampling finds it in a statistical way, reasoning on just the fact that the likelihood is a decreasing function of the prior mass. For more details, check the original paper by Skilling (the one published in 2004 or the other in 2006. The book of Sivia and Skilling, Data Analysis, has a great treatement of the subject, too.), but to get a general idea of what you have to do, consider the following image that describes in a schematic way the major steps of the algorithm
 
 .. image:: images/algorithm.jpg
-    :width: 650pt
+    :width: 750pt
 
 Termination condition
 ---------------------
-What is this termination condition? Well, we can define it by looking at the typical behaviour of the value of the area element :math: `L^* \Delta \xi`
+
+What is this termination condition? Well, we can define it by looking at the typical behaviour of the value of the area element :math:`L^* \\Delta \\xi`
 
 .. image:: images/areadynamics.jpg
     :width: 450pt
 
-1. The increase of the likelihood overcomes the decrease of the :math: `\\Delta \\xi` \\
+1. The increase of the likelihood overcomes the decrease of the :math:`\\Delta \\xi` \\
 2. Balance
-3. The decrease of the widths :math: `\\Delta \\xi` is dominant over the increase of the likelihood
+3. The decrease of the widths :math:`\\Delta \\xi` is dominant over the increase of the likelihood
 
-What we would like to do is to stop the algorithm in the final part of the region 3, where the contribution of the area element to the evidence Z is negligible compared to the already accumulated Z. Ok, but when do this happen? Well, we have to consider one thing: the major contribution to the evidence is made by that area of the prior mass where the bulk of the posterior mass is present. This fraction usually is to be found in the region of :math: `\\xi \\approx e^{-H}` where H is the information
+What we would like to do is to stop the algorithm in the final part of the region 3, where the contribution of the area element to the evidence Z is negligible compared to the already accumulated Z. Ok, but when do this happen? Well, we have to consider one thing: the major contribution to the evidence is made by that area of the prior mass where the bulk of the posterior mass is present. This fraction usually is to be found in the region of :math:`\\xi \\approx e^{-H}` where H is the information
 
 .. math::
     H = \int_0^1 P(\xi) \log (P(\xi)) d\xi
 
-that represents in logarithmic form the prior-to-posterior shrinkage (:math: `\\frac{Prior}{Posterior} = e^H \\implies Posterior = e^{-H}Prior)`. If each :math: `\\xi_k=e^{-k/n}`, to pass through the bulf of the posterior (and so to reach the region 3) we need to exceeds significantly :math: `nH` iterations. Of course, this is the theory. In practice we do not have the value of information a priori (indeed we accumulate it through iterations!), so what we can do in order to be sure that we have reached the region 3 is to stop the algorithm when
+that represents in logarithmic form the prior-to-posterior shrinkage (:math:`\\frac{Prior}{Posterior} = e^H \\implies Posterior = e^{-H}Prior)`. If each :math:`\\xi_k=e^{-k/n}`, to pass through the bulf of the posterior (and so to reach the region 3) we need to exceeds significantly :math: `nH` iterations. Of course, this is the theory. In practice we do not have the value of information a priori (indeed we accumulate it through iterations!), so what we can do in order to be sure that we have reached the region 3 is to stop the algorithm when
 
 .. math::
     max\{L(\vec{\theta})\}_i \ \xi_i < f Z_i
 
-that corresponds to say that we terminate the algorithm when even the maximum value of our current likelihood values times the total width of the current prior mass domain does not contribute to the evidence by a quantity that is greater than a fraction :math: `f` of the current evidence value. \\ We can do better substituting the maximum of the likelihood values by the analytical maximum of the likelihood, when we can compute it (for example, in the case of a N-dim gaussian this maximum is :math: `(\\frac{1}{\\sqrt{2 \\pi}})^N`)
+that corresponds to say that we terminate the algorithm when even the maximum value of our current likelihood values times the total width of the current prior mass domain does not contribute to the evidence by a quantity that is greater than a fraction :math:`f` of the current evidence value. \\ We can do better substituting the maximum of the likelihood values by the analytical maximum of the likelihood, when we can compute it (for example, in the case of a N-dim gaussian this maximum is :math:`(\\frac{1}{\\sqrt{2 \\pi}})^N`)
 
 Problems I encountered
 ----------------------
