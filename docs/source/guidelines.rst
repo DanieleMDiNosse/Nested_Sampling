@@ -58,26 +58,26 @@ The problem is that we do not know this transformation, but the nested sampling 
 
 Termination condition
 ---------------------
-What is this termination condition? Well, we can define it by looking at the typical behaviour of the value of the area element :math: `L^* \Delta \xi`
+What is this termination condition? Well, we can define it by looking at the typical behaviour of the value of the area element :math: `L^* \\Delta \\xi`
 
 .. image:: images/areadynamics.jpg
     :width: 450pt
 
-1. The increase of the likelihood overcomes the decrease of the :math: `\Delta \xi` \\
+1. The increase of the likelihood overcomes the decrease of the :math: `\\Delta \\xi` \\
 2. Balance
-3. The decrease of the widths :math: `\Delta \xi` is dominant over the increase of the likelihood
+3. The decrease of the widths :math: `\\Delta \\xi` is dominant over the increase of the likelihood
 
-What we would like to do is to stop the algorithm in the final part of the region 3, where the contribution of the area element to the evidence Z is negligible compared to the already accumulated Z. Ok, but when do this happen? Well, we have to consider one thing: the major contribution to the evidence is made by that area of the prior mass where the bulk of the posterior mass is present. This fraction usually is to be found in the region of :math: `\xi \approx e^{-H}` where H is the information
+What we would like to do is to stop the algorithm in the final part of the region 3, where the contribution of the area element to the evidence Z is negligible compared to the already accumulated Z. Ok, but when do this happen? Well, we have to consider one thing: the major contribution to the evidence is made by that area of the prior mass where the bulk of the posterior mass is present. This fraction usually is to be found in the region of :math: `\\xi \\approx e^{-H}` where H is the information
 
 .. math::
     H = \int_0^1 P(\xi) \log (P(\xi)) d\xi
 
-that represents in logarithmic form the prior-to-posterior shrinkage (:math: `\frac{Prior}{Posterior} = e^H \implies Posterior = e^{-H}Prior)`. If each :math: `\xi_k=e^{-k/n}`, to pass through the bulf of the posterior (and so to reach the region 3) we need to exceeds significantly :math: `nH` iterations. Of course, this is the theory. In practice we do not have the value of information a priori (indeed we accumulate it through iterations!), so what we can do in order to be sure that we have reached the region 3 is to stop the algorithm when
+that represents in logarithmic form the prior-to-posterior shrinkage (:math: `\\frac{Prior}{Posterior} = e^H \\implies Posterior = e^{-H}Prior)`. If each :math: `\\xi_k=e^{-k/n}`, to pass through the bulf of the posterior (and so to reach the region 3) we need to exceeds significantly :math: `nH` iterations. Of course, this is the theory. In practice we do not have the value of information a priori (indeed we accumulate it through iterations!), so what we can do in order to be sure that we have reached the region 3 is to stop the algorithm when
 
 .. math::
     max\{L(\vec{\theta})\}_i \ \xi_i < f Z_i
 
-that corresponds to say that we terminate the algorithm when even the maximum value of our current likelihood values times the total width of the current prior mass domain does not contribute to the evidence by a quantity that is greater than a fraction :math: `f` of the current evidence value. \\ We can do better substituting the maximum of the likelihood values by the analytical maximum of the likelihood, when we can compute it (for example, in the case of a N-dim gaussian this maximum is :math: `(\frac{1}{\sqrt{2 \pi}})^N`)
+that corresponds to say that we terminate the algorithm when even the maximum value of our current likelihood values times the total width of the current prior mass domain does not contribute to the evidence by a quantity that is greater than a fraction :math: `f` of the current evidence value. \\ We can do better substituting the maximum of the likelihood values by the analytical maximum of the likelihood, when we can compute it (for example, in the case of a N-dim gaussian this maximum is :math: `(\\frac{1}{\\sqrt{2 \\pi}})^N`)
 
 Problems I encountered
 ----------------------
