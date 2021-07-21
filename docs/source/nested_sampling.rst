@@ -4,6 +4,10 @@ Nested Sampling Implementation Package
 ======================================
 Here are listed all the modules that can be found in my little package about Nasted Sampling.
 
+.. note::
+    To use the package, go to Nested Sampling directory where there is setup.py and run
+    .. code-block:: python
+        python install .
 
 Modules
 -------
