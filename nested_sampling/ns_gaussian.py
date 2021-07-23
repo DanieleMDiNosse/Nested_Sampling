@@ -84,7 +84,6 @@ def nested_samplig(live_points, dim, boundary, proposal_distribution, verbose=Fa
 
         survivors = np.delete(live_points, Lw_idx, axis=0)
         std = np.mean(np.std(survivors[:dim], axis = 0))
-        boundary_point = live_points[Lw_idx,:dim]
 
         area.append(logwidth+logLw)
 
