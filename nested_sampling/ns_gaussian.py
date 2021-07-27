@@ -110,7 +110,8 @@ def nested_samplig(live_points, dim, boundary, proposal_distribution, verbose=Fa
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Nested sampling')
-    parser.add_argument('--dim', '-d', type=int, help='Max dimension of the parameter spaces')
+    parser.add_argument('--dim', '-d', type=int, help='Max dimension of the parameter spaces. Iterations are from 2 to dim')
+    parser.add_argument('--step', '-s', type=int, help='Step fro the dimension range')
     parser.add_argument('--num_live_points', '-n', type=int, help='Number of live points')
     parser.add_argument('--boundary', '-b', type=int, default=5, help='Boundaries for the prior (centered at zero). The default is 5 ')
     parser.add_argument('--proposal', '-pr', type=int, help='Proposal for the new object from the prior. 0 for uniform, 1 for normal')
@@ -139,7 +140,7 @@ if __name__ == "__main__":
 
     time_tot = []; log_evidence_values = []; error_values = []
 
-    range_dim = np.arange(2,dim+1)
+    range_dim = np.arange(2,dim+1, args.step)
 
     true_values = [-d*np.log(2*boundary) for d in range_dim]
 

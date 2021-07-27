@@ -108,5 +108,8 @@ Of course these are not the best or unique ways to handle the problem of tuning 
 
 Another aspect with which I had to deal is the autocorrelation between points during the Markov chain procedure in the replacing of the worst object (the one with the smallest likelihood) with a new one sampled from the (uniform) prior. We want a new indipendet object, but obviously we need to start somewhere. I chose to start directly from the parameters corresponding to the worst object and, every time a new point statisfies the constraint on the likelihood, the center of the proposal distribution is shifted into this new accepted point. The question is: how much steps do I have to perform until memory about the starting point is lost? To answer this we can compute the autocorrelation function between, say, 200 accepted point and check when it becames sufficiently small. To quantify this "sufficiently small" I performed a bootstrap test on the time series of accepted points. The gray area in the image below represents the :math:`\mu \pm 2\sigma` of the ensamble of 200 autocorrelation vectors obtained by shuffling 200 times the time series of accepted points (so: shuffle -> compute autocorrelation -> append this vector to a list -> repeat 200 times). The shuffling ensures all the temporal relations to be lost, so what remains is an artifact. I assumed that this behaviour of the autocorrelation is the same at every iteration, so every time a new object is required.
 
+.. warning::
+    I figured out I made a mistake in the computation of autocorrelation. You have to consider ALL the points (both rejected and accepted ones) in order to evaluate the autocorrelation lenght!
+
 .. image:: images/autocorr.jpg
     :width: 450pt
